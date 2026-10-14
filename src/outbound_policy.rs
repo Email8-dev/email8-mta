@@ -32,7 +32,9 @@ impl MtaStsPolicy {
         let mut mx = Vec::new();
         let mut max_age = 0u64;
         for line in text.lines() {
-            let Some((k, v)) = line.split_once(':') else { continue };
+            let Some((k, v)) = line.split_once(':') else {
+                continue;
+            };
             let k = k.trim().to_ascii_lowercase();
             let v = v.trim();
             match k.as_str() {
@@ -46,7 +48,12 @@ impl MtaStsPolicy {
         if version != "STSv1" || mode.is_empty() || mx.is_empty() || max_age == 0 {
             return None;
         }
-        Some(Self { version, mode, mx, max_age_secs: max_age })
+        Some(Self {
+            version,
+            mode,
+            mx,
+            max_age_secs: max_age,
+        })
     }
 }
 
@@ -62,12 +69,18 @@ impl TlsrptPolicy {
     pub async fn lookup(dns: &dyn email8::mail_auth::DnsTxt, domain: &str) -> Option<Self> {
         let name = format!("_smtp._tls.{domain}");
         let rows = dns.lookup_txt(&name).await.ok()?;
-        let row = rows
-            .iter()
-            .find(|r| r.trim_start().to_ascii_lowercase().starts_with("v=tlsrptv1"))?;
+        let row = rows.iter().find(|r| {
+            r.trim_start()
+                .to_ascii_lowercase()
+                .starts_with("v=tlsrptv1")
+        })?;
         let mut rua = Vec::new();
         for tag in row.split(';') {
-            if let Some(v) = tag.trim().strip_prefix("rua=").or_else(|| tag.trim().strip_prefix("RUA=")) {
+            if let Some(v) = tag
+                .trim()
+                .strip_prefix("rua=")
+                .or_else(|| tag.trim().strip_prefix("RUA="))
+            {
                 rua.extend(v.split(',').map(|s| s.trim().to_string()));
             }
         }
@@ -104,7 +117,10 @@ impl Default for StsCache {
 
 impl StsCache {
     pub fn new() -> Self {
-        Self { entries: Arc::new(RwLock::new(HashMap::new())), fetch_hook: None }
+        Self {
+            entries: Arc::new(RwLock::new(HashMap::new())),
+            fetch_hook: None,
+        }
     }
 
     /// Test-only: install a fetch hook.
@@ -128,14 +144,24 @@ impl StsCache {
         let id = row
             .split(';')
             .find_map(|tag| tag.trim().strip_prefix("id=").map(|s| s.to_string()))
-            .or_else(|| row.split(';').find_map(|tag| tag.trim().strip_prefix("id=").map(|s| s.to_string())))?;
+            .or_else(|| {
+                row.split(';')
+                    .find_map(|tag| tag.trim().strip_prefix("id=").map(|s| s.to_string()))
+            })?;
 
         // 2. Cached?
         {
             let entries = self.entries.read().await;
             if let Some(cached) = entries.get(domain) {
                 if cached.id == id
-                    && cached.fetched_at.elapsed() < Duration::from_secs(cached.policy.as_ref().map(|p| p.max_age_secs).unwrap_or(86400))
+                    && cached.fetched_at.elapsed()
+                        < Duration::from_secs(
+                            cached
+                                .policy
+                                .as_ref()
+                                .map(|p| p.max_age_secs)
+                                .unwrap_or(86400),
+                        )
                 {
                     return cached.policy.clone();
                 }
@@ -153,7 +179,11 @@ impl StsCache {
         let mut entries = self.entries.write().await;
         entries.insert(
             domain.to_string(),
-            CachedPolicy { id, policy: policy.clone(), fetched_at: Instant::now() },
+            CachedPolicy {
+                id,
+                policy: policy.clone(),
+                fetched_at: Instant::now(),
+            },
         );
         policy
     }
@@ -216,7 +246,9 @@ mod tests {
     async fn tlsrpt_lookup_parses_rua() {
         let dns = FnDnsTxt(|name: &str| {
             if name == "_smtp._tls.example.com" {
-                Ok(vec!["v=TLSRPTv1; rua=mailto:tlsrpt@example.com,mailto:two@example.org".into()])
+                Ok(vec![
+                    "v=TLSRPTv1; rua=mailto:tlsrpt@example.com,mailto:two@example.org".into(),
+                ])
             } else {
                 Err("nx".into())
             }

@@ -22,9 +22,7 @@
 use std::sync::Arc;
 
 use tokio_rustls::client::TlsStream;
-use tokio_rustls::rustls::client::danger::{
-    ServerCertVerified, ServerCertVerifier,
-};
+use tokio_rustls::rustls::client::danger::{ServerCertVerified, ServerCertVerifier};
 use tokio_rustls::rustls::pki_types::{CertificateDer, UnixTime};
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
@@ -45,7 +43,7 @@ impl TlsaRecord {
     /// Parse one TLSA RDATA hex triple + data from DoH TXT-style rows
     /// (`_25._tcp.mx.example.com` A-style answers land as hex strings).
     pub fn parse(row: &str) -> Option<Self> {
-        let parts: Vec<&str> = row.trim().split_whitespace().collect();
+        let parts: Vec<&str> = row.split_whitespace().collect();
         if parts.len() != 3 {
             return None;
         }
@@ -58,7 +56,12 @@ impl TlsaRecord {
         // The association arrives in a separate lookup (the A-record
         // wire form carries only the three fields; the hex payload is
         // appended by the resolver adapter as a 4th whitespace token).
-        Some(Self { usage, selector, matching, association: Vec::new() })
+        Some(Self {
+            usage,
+            selector,
+            matching,
+            association: Vec::new(),
+        })
     }
 
     /// Attach the association data (separate TXT row: the hex blob).
@@ -110,11 +113,7 @@ pub enum DaneMode {
 /// Look up the TLSA records for `_port._transport.host` via the
 /// injected resolver (DoH TXT-shaped rows: `usage selector matching`
 /// then association hex rows).
-pub async fn dane_lookup(
-    dns: &dyn email8::mail_auth::DnsTxt,
-    host: &str,
-    port: u16,
-) -> DaneMode {
+pub async fn dane_lookup(dns: &dyn email8::mail_auth::DnsTxt, host: &str, port: u16) -> DaneMode {
     let name = format!("_{port}._tcp.{host}");
     match dns.lookup_txt(&name).await {
         Ok(rows) if !rows.is_empty() => {
@@ -216,7 +215,13 @@ impl ServerCertVerifier for DaneVerifier {
         let verifier = tokio_rustls::rustls::client::WebPkiServerVerifier::builder(Arc::new(roots))
             .build()
             .map_err(|e| rustls::Error::Other(rustls::OtherError(Arc::new(e))))?;
-        verifier.verify_server_cert(end_entity, intermediates, _server_name, _ocsp_response, _now)
+        verifier.verify_server_cert(
+            end_entity,
+            intermediates,
+            _server_name,
+            _ocsp_response,
+            _now,
+        )
     }
 
     fn verify_tls12_signature(
@@ -353,7 +358,9 @@ mod tests {
     #[tokio::test]
     async fn dane_lookup_enforced_when_records_present() {
         let mode = dane_lookup(
-            &email8::mail_auth::FnDnsTxt(dns_lookup_stub as fn(&str) -> Result<Vec<String>, String>),
+            &email8::mail_auth::FnDnsTxt(
+                dns_lookup_stub as fn(&str) -> Result<Vec<String>, String>,
+            ),
             "mx1.example",
             25,
         )
@@ -372,7 +379,9 @@ mod tests {
     #[tokio::test]
     async fn dane_lookup_opportunistic_when_absent() {
         let mode = dane_lookup(
-            &email8::mail_auth::FnDnsTxt(dns_lookup_stub as fn(&str) -> Result<Vec<String>, String>),
+            &email8::mail_auth::FnDnsTxt(
+                dns_lookup_stub as fn(&str) -> Result<Vec<String>, String>,
+            ),
             "mx-other.example",
             25,
         )

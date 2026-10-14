@@ -109,7 +109,11 @@ async fn telemetry_pass(pool: &sqlx::PgPool) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
     if let Some((spam_n, total)) = spam {
-        let rate = if total > 0 { spam_n as f64 / total as f64 } else { 0.0 };
+        let rate = if total > 0 {
+            spam_n as f64 / total as f64
+        } else {
+            0.0
+        };
         sentin8::shield::stat_emit::emit_metric_event(
             "email8:mta",
             "email8.spam.snapshot",

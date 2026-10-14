@@ -90,7 +90,10 @@ fn enforced_no_match_denies() {
         &ctx("user", &["bank8:ledger:accounts:read"]),
         &EvalTarget::new(HANDLER_ACTIONS[0]),
     );
-    assert!(!out.is_allow(), "scope for another service must not satisfy");
+    assert!(
+        !out.is_allow(),
+        "scope for another service must not satisfy"
+    );
 }
 
 /// (b) shadow never blocks: the same denial under a shadow set is an allow
@@ -98,10 +101,7 @@ fn enforced_no_match_denies() {
 #[test]
 fn shadow_never_blocks() {
     let e = mirror_engine(PolicyMode::Shadow);
-    let out = e.evaluate(
-        &ctx("user", &[]),
-        &EvalTarget::new(HANDLER_ACTIONS[0]),
-    );
+    let out = e.evaluate(&ctx("user", &[]), &EvalTarget::new(HANDLER_ACTIONS[0]));
     assert!(out.is_allow(), "shadow must never block");
     assert!(out.shadow_deny.is_some(), "would-deny must be reported");
 }
@@ -113,7 +113,10 @@ fn mirror_permits_own_grants() {
     let e = mirror_engine(PolicyMode::Enforced);
     for action in HANDLER_ACTIONS {
         let out = e.evaluate(&ctx("user", &[*action]), &EvalTarget::new(*action));
-        assert!(out.is_allow(), "action {action} must be covered by the mirror");
+        assert!(
+            out.is_allow(),
+            "action {action} must be covered by the mirror"
+        );
     }
 }
 
@@ -123,15 +126,9 @@ fn mirror_permits_own_grants() {
 fn m2m_parity() {
     let e = mirror_engine(PolicyMode::Enforced);
     let action = HANDLER_ACTIONS[0];
-    let allow = e.evaluate(
-        &ctx("m2m", &[action]),
-        &EvalTarget::new(action),
-    );
+    let allow = e.evaluate(&ctx("m2m", &[action]), &EvalTarget::new(action));
     assert!(allow.is_allow(), "scoped M2M principal passes like a user");
-    let deny = e.evaluate(
-        &ctx("m2m", &[]),
-        &EvalTarget::new(action),
-    );
+    let deny = e.evaluate(&ctx("m2m", &[]), &EvalTarget::new(action));
     assert!(!deny.is_allow(), "unscoped M2M is denied like a user");
 }
 
@@ -155,10 +152,18 @@ fn platform_admin_scopes_pass() {
 fn forbid_beats_permit() {
     let e = PolicyEngine::new(SERVICE);
     e.load_from_rows(vec![
-        row("scope-mirror", SCOPE_MIRROR_POLICIES, PolicyMode::Enforced, PolicyOrigin::Platform),
+        row(
+            "scope-mirror",
+            SCOPE_MIRROR_POLICIES,
+            PolicyMode::Enforced,
+            PolicyOrigin::Platform,
+        ),
         row(
             "tenant-freeze",
-            &format!("forbid(principal, action == Action::\"{}\", resource);", HANDLER_ACTIONS[0]),
+            &format!(
+                "forbid(principal, action == Action::\"{}\", resource);",
+                HANDLER_ACTIONS[0]
+            ),
             PolicyMode::Enforced,
             PolicyOrigin::Tenant,
         ),
@@ -168,7 +173,10 @@ fn forbid_beats_permit() {
         &ctx("user", &[HANDLER_ACTIONS[0]]),
         &EvalTarget::new(HANDLER_ACTIONS[0]),
     );
-    assert!(matches!(out.enforce_decision, Decision::Deny { .. }), "forbid wins");
+    assert!(
+        matches!(out.enforce_decision, Decision::Deny { .. }),
+        "forbid wins"
+    );
 }
 
 /// (f2) role-keyed rules participate in the same decision: a tenant set
@@ -186,14 +194,10 @@ fn role_keyed_tenant_set_decides() {
         PolicyOrigin::Tenant,
     )])
     .expect("load");
-    let denied = e.evaluate(
-        &ctx("user", &[]),
-        &EvalTarget::new(HANDLER_ACTIONS[0]),
-    );
+    let denied = e.evaluate(&ctx("user", &[]), &EvalTarget::new(HANDLER_ACTIONS[0]));
     assert!(!denied.is_allow());
     let allowed = e.evaluate(
-        &ctx("user", &[])
-            .with_roles(["email8:admin"].iter().map(|s| s.to_string()).collect()),
+        &ctx("user", &[]).with_roles(["email8:admin"].iter().map(|s| s.to_string()).collect()),
         &EvalTarget::new(HANDLER_ACTIONS[0]),
     );
     assert!(allowed.is_allow());
@@ -204,7 +208,12 @@ fn role_keyed_tenant_set_decides() {
 #[test]
 fn cross_env_set_isolated() {
     let other_env = uuid::Uuid::new_v4();
-    let mut r = row("other-env-set", SCOPE_MIRROR_POLICIES, PolicyMode::Enforced, PolicyOrigin::Platform);
+    let mut r = row(
+        "other-env-set",
+        SCOPE_MIRROR_POLICIES,
+        PolicyMode::Enforced,
+        PolicyOrigin::Platform,
+    );
     r.env_id = other_env;
     let e = PolicyEngine::new(SERVICE);
     e.load_from_rows(vec![r]).expect("load");
@@ -212,7 +221,10 @@ fn cross_env_set_isolated() {
         &ctx("user", &[HANDLER_ACTIONS[0]]),
         &EvalTarget::new(HANDLER_ACTIONS[0]),
     );
-    assert!(!out.is_allow(), "another env's set must not decide this env");
+    assert!(
+        !out.is_allow(),
+        "another env's set must not decide this env"
+    );
 }
 
 /// (g2) registration parity: the declared set covers EVERY action the
@@ -222,7 +234,10 @@ fn declared_mirror_covers_every_handler_action() {
     let e = mirror_engine(PolicyMode::Enforced);
     for action in HANDLER_ACTIONS {
         let out = e.evaluate(&ctx("user", &[*action]), &EvalTarget::new(*action));
-        assert!(out.is_allow(), "action {action} must be covered by the mirror");
+        assert!(
+            out.is_allow(),
+            "action {action} must be covered by the mirror"
+        );
     }
 }
 
@@ -230,12 +245,8 @@ fn declared_mirror_covers_every_handler_action() {
 /// an enforced set that denies its own grants never ships.
 #[test]
 fn declared_set_passes_enroll_dry_run() {
-    sentin8::shield::runtime::dry_run_mirror(
-        SCOPE_MIRROR_POLICIES,
-        "scope-mirror",
-        SERVICE,
-    )
-    .expect("declared email8:mta scope-mirror must permit its own grants");
+    sentin8::shield::runtime::dry_run_mirror(SCOPE_MIRROR_POLICIES, "scope-mirror", SERVICE)
+        .expect("declared email8:mta scope-mirror must permit its own grants");
 }
 
 /// Every action the mta handlers evaluate (step-5 targets). The

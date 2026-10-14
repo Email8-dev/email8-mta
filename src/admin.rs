@@ -31,8 +31,7 @@ pub async fn get_admin_ui(
     Path(page): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = sentin8::shell::verify_token(&state.core.config, &headers)
-        .await
-        .map_err(|(c, m)| (c, m))?;
+        .await?;
     // Step-5 policy decision (Phase 28 §4.3): the queue action governs
     // the RFW page read — the scope-mirror carries the sibling admin
     // scopes + platform-admin permits for it.
@@ -42,8 +41,7 @@ pub async fn get_admin_ui(
         &headers,
         sentin8::shield::EvalTarget::new("email8:admin:queue"),
     )
-    .await
-    .map_err(|(c, m)| (c, m))?;
+    .await?;
 
     let page_def = match page.as_str() {
         "queue" => queue_page(),
@@ -52,9 +50,16 @@ pub async fn get_admin_ui(
         "spam" => spam_page(),
         "hooks" => hooks_page(),
         "domains" => domains_page(),
-        _ => return Err((StatusCode::NOT_FOUND, format!("Unknown admin UI page: {page}"))),
+        _ => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                format!("Unknown admin UI page: {page}"),
+            ))
+        }
     };
-    Ok(Json(serde_json::to_value(&AdminUiResponse::page(page_def)).unwrap()))
+    Ok(Json(
+        serde_json::to_value(AdminUiResponse::page(page_def)).unwrap(),
+    ))
 }
 
 /// `POST /v1/admin/{page}` — data endpoints.
@@ -83,8 +88,7 @@ pub async fn admin_data(
         .target_env_id
         .ok_or((StatusCode::BAD_REQUEST, "missing target_env_id".into()))?;
     let a = sentin8::shell::verify_token(&state.core.config, &headers)
-        .await
-        .map_err(|(c, m)| (c, m))?;
+        .await?;
     // Step-5 policy decision (Phase 28 §4.3) — queue governs.
     sentin8::shell::policy::require(
         &state.core.admin.policy,
@@ -92,8 +96,7 @@ pub async fn admin_data(
         &headers,
         sentin8::shield::EvalTarget::new("email8:admin:queue"),
     )
-    .await
-    .map_err(|(c, m)| (c, m))?;
+    .await?;
 
     let mut conn = state.pool.acquire().await.map_err(err_db)?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
@@ -180,7 +183,10 @@ pub async fn admin_data(
         "hooks" => hooks_data(&mut conn, env_id).await.map(Json),
         "domains" => domains_data(&mut conn, env_id).await.map(Json),
         "external_reports" => external_reports_data(&mut conn, env_id).await.map(Json),
-        other => Err((StatusCode::NOT_FOUND, format!("Unknown admin data page: {other}"))),
+        other => Err((
+            StatusCode::NOT_FOUND,
+            format!("Unknown admin data page: {other}"),
+        )),
     }
 }
 
@@ -188,11 +194,41 @@ fn queue_page() -> AdminUiPage {
     AdminPage::new("Delivery Queue")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
             columns: vec![
-                WidgetDataTableColumn { key: "return_path".into(), label: "Sender".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "pending".into(), label: "Pending".into(), sortable: true, width: None, format: None },
-                WidgetDataTableColumn { key: "deferred".into(), label: "Deferred".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "failed".into(), label: "Failed".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "created_at".into(), label: "Accepted".into(), sortable: true, width: None, format: Some("date".into()) },
+                WidgetDataTableColumn {
+                    key: "return_path".into(),
+                    label: "Sender".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "pending".into(),
+                    label: "Pending".into(),
+                    sortable: true,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "deferred".into(),
+                    label: "Deferred".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "failed".into(),
+                    label: "Failed".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "created_at".into(),
+                    label: "Accepted".into(),
+                    sortable: true,
+                    width: None,
+                    format: Some("date".into()),
+                },
             ],
             data_endpoint: "/queue".into(),
             sortable: true,
@@ -209,10 +245,34 @@ fn dkim_page() -> AdminUiPage {
     AdminPage::new("DKIM Keys")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
             columns: vec![
-                WidgetDataTableColumn { key: "domain".into(), label: "Domain".into(), sortable: true, width: None, format: None },
-                WidgetDataTableColumn { key: "selector".into(), label: "Selector".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "algorithm".into(), label: "Algorithm".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "stage".into(), label: "Stage".into(), sortable: false, width: None, format: None },
+                WidgetDataTableColumn {
+                    key: "domain".into(),
+                    label: "Domain".into(),
+                    sortable: true,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "selector".into(),
+                    label: "Selector".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "algorithm".into(),
+                    label: "Algorithm".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "stage".into(),
+                    label: "Stage".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
             ],
             data_endpoint: "/dkim".into(),
             sortable: false,
@@ -229,10 +289,34 @@ fn reports_page() -> AdminUiPage {
     AdminPage::new("Reports")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
             columns: vec![
-                WidgetDataTableColumn { key: "kind".into(), label: "Kind".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "domain".into(), label: "Domain".into(), sortable: true, width: None, format: None },
-                WidgetDataTableColumn { key: "window_end".into(), label: "Window End".into(), sortable: true, width: None, format: Some("date".into()) },
-                WidgetDataTableColumn { key: "submitted_at".into(), label: "Submitted".into(), sortable: false, width: None, format: Some("date".into()) },
+                WidgetDataTableColumn {
+                    key: "kind".into(),
+                    label: "Kind".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "domain".into(),
+                    label: "Domain".into(),
+                    sortable: true,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "window_end".into(),
+                    label: "Window End".into(),
+                    sortable: true,
+                    width: None,
+                    format: Some("date".into()),
+                },
+                WidgetDataTableColumn {
+                    key: "submitted_at".into(),
+                    label: "Submitted".into(),
+                    sortable: false,
+                    width: None,
+                    format: Some("date".into()),
+                },
             ],
             data_endpoint: "/reports".into(),
             sortable: true,
@@ -370,11 +454,41 @@ fn spam_page() -> AdminUiPage {
     AdminPage::new("Spam Policy")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
             columns: vec![
-                WidgetDataTableColumn { key: "hostname".into(), label: "Hostname".into(), sortable: true, width: None, format: None },
-                WidgetDataTableColumn { key: "max_message_size".into(), label: "Max Size".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "max_recipients_per_message".into(), label: "Max Rcpts".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "require_auth".into(), label: "Require Auth".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "allow_relaying".into(), label: "Relay".into(), sortable: false, width: None, format: None },
+                WidgetDataTableColumn {
+                    key: "hostname".into(),
+                    label: "Hostname".into(),
+                    sortable: true,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "max_message_size".into(),
+                    label: "Max Size".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "max_recipients_per_message".into(),
+                    label: "Max Rcpts".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "require_auth".into(),
+                    label: "Require Auth".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "allow_relaying".into(),
+                    label: "Relay".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
             ],
             data_endpoint: "/spam".into(),
             sortable: false,
@@ -391,10 +505,34 @@ fn hooks_page() -> AdminUiPage {
     AdminPage::new("MTA Hooks")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
             columns: vec![
-                WidgetDataTableColumn { key: "stage".into(), label: "Stage".into(), sortable: true, width: None, format: None },
-                WidgetDataTableColumn { key: "hook_kind".into(), label: "Kind".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "target".into(), label: "Target".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "is_enabled".into(), label: "Enabled".into(), sortable: false, width: None, format: None },
+                WidgetDataTableColumn {
+                    key: "stage".into(),
+                    label: "Stage".into(),
+                    sortable: true,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "hook_kind".into(),
+                    label: "Kind".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "target".into(),
+                    label: "Target".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "is_enabled".into(),
+                    label: "Enabled".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
             ],
             data_endpoint: "/hooks".into(),
             sortable: false,
@@ -411,10 +549,34 @@ fn domains_page() -> AdminUiPage {
     AdminPage::new("Domains")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
             columns: vec![
-                WidgetDataTableColumn { key: "domain".into(), label: "Domain".into(), sortable: true, width: None, format: None },
-                WidgetDataTableColumn { key: "is_active".into(), label: "Active".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "allow_relaying".into(), label: "Relay".into(), sortable: false, width: None, format: None },
-                WidgetDataTableColumn { key: "report_address".into(), label: "Report Address".into(), sortable: false, width: None, format: None },
+                WidgetDataTableColumn {
+                    key: "domain".into(),
+                    label: "Domain".into(),
+                    sortable: true,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "is_active".into(),
+                    label: "Active".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "allow_relaying".into(),
+                    label: "Relay".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
+                WidgetDataTableColumn {
+                    key: "report_address".into(),
+                    label: "Report Address".into(),
+                    sortable: false,
+                    width: None,
+                    format: None,
+                },
             ],
             data_endpoint: "/domains".into(),
             sortable: false,

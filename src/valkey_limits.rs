@@ -91,7 +91,8 @@ impl ValkeyLimits {
         use glide::AsyncCommands as _;
         let count: isize = self.client.incr(&ck, 1).await.map_err(|e| e.to_string())?;
         if count == 1 {
-            let _: bool = self.client
+            let _: bool = self
+                .client
                 .expire(&ck, period.as_secs().max(1) as i64)
                 .await
                 .map_err(|e| e.to_string())?;
@@ -121,7 +122,8 @@ impl ValkeyLimits {
         );
         use glide::AsyncCommands as _;
         // SET NX + TTL: the FIRST sighting defers; the retry passes.
-        let set: Option<String> = self.client
+        let set: Option<String> = self
+            .client
             .set_options(
                 &key,
                 "1",
@@ -149,22 +151,27 @@ impl ValkeyLimits {
     ) -> Result<bool, String> {
         let strikes = format!("e8:{env}:f2b:{ip}", env = env_id);
         use glide::AsyncCommands as _;
-        let count: isize = self.client.incr(&strikes, 1).await.map_err(|e| e.to_string())?;
+        let count: isize = self
+            .client
+            .incr(&strikes, 1)
+            .await
+            .map_err(|e| e.to_string())?;
         if count == 1 {
-            let _: bool = self.client
+            let _: bool = self
+                .client
                 .expire(&strikes, period.as_secs().max(1) as i64)
                 .await
                 .map_err(|e| e.to_string())?;
         }
         if count as u64 >= threshold {
-            let banned: Option<String> = self.client
+            let banned: Option<String> = self
+                .client
                 .set_options(
                     format!("e8:{env}:banned:{ip}", env = env_id),
                     "1",
-                    glide::commands::options::SetOptions::default()
-                        .with_expiration(glide::commands::options::SetExpiry::EX(
-                            ban_ttl.as_secs().max(1),
-                        )),
+                    glide::commands::options::SetOptions::default().with_expiration(
+                        glide::commands::options::SetExpiry::EX(ban_ttl.as_secs().max(1)),
+                    ),
                 )
                 .await
                 .map_err(|e| e.to_string())?;

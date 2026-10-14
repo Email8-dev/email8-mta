@@ -51,10 +51,7 @@ impl StartTlsUpgrader {
     /// Wrap the plain stream. The caller has already replied `220
     /// Ready` and drained buffered plaintext (pipelining after STARTTLS
     /// is a protocol violation — rejected before this point).
-    pub async fn upgrade(
-        &self,
-        plain: BoxedStream,
-    ) -> Result<BoxedStream, String> {
+    pub async fn upgrade(&self, plain: BoxedStream) -> Result<BoxedStream, String> {
         // rustls needs a concrete TcpStream for SNI; the boxed stream is
         // re-wrapped via the acceptor's generic `accept` on a shim.
         // tokio_rustls accepts any AsyncRead+AsyncWrite: use the
@@ -147,10 +144,7 @@ pub struct Session {
 impl Session {
     /// The STARTTLS transport swap (platform story 0.1): take the boxed
     /// plain stream, wrap it in place with the sentin8-tls acceptor.
-    pub async fn swap_stream_tls(
-        &mut self,
-        upgrader: &StartTlsUpgrader,
-    ) -> bool {
+    pub async fn swap_stream_tls(&mut self, upgrader: &StartTlsUpgrader) -> bool {
         let plain = std::mem::replace(
             &mut self.stream,
             Box::new(tokio::io::empty()) as BoxedStream,
@@ -216,10 +210,7 @@ impl Session {
     }
 
     /// Attach the per-env DNSBL zone cache (story 5.2).
-    pub fn with_dnsbl_zones(
-        mut self,
-        cache: Arc<crate::dnsbl_config::DnsblZoneCache>,
-    ) -> Self {
+    pub fn with_dnsbl_zones(mut self, cache: Arc<crate::dnsbl_config::DnsblZoneCache>) -> Self {
         self.dnsbl_zones = Some(cache);
         self
     }
@@ -227,14 +218,13 @@ impl Session {
     /// Run the session until QUIT, timeout, or socket close.
     /// Read + strip a leading PROXY v2 header from the stream, using
     /// the parsed source address as the session's client IP.
-    async fn consume_proxy_v2(&mut self) -> Result<(), email8::gate::contracts::proxy_parse::ProxyV2Error> {
+    async fn consume_proxy_v2(
+        &mut self,
+    ) -> Result<(), email8::gate::contracts::proxy_parse::ProxyV2Error> {
         use tokio::io::AsyncReadExt;
         let mut head = [0u8; 16];
         self.stream.read_exact(&mut head).await.map_err(|_| {
-            email8::gate::contracts::proxy_parse::ProxyV2Error::Truncated {
-                needed: 16,
-                got: 0,
-            }
+            email8::gate::contracts::proxy_parse::ProxyV2Error::Truncated { needed: 16, got: 0 }
         })?;
         // The length lives in bytes 14..16; read the address block.
         let addr_len = u16::from_be_bytes([head[14], head[15]]) as usize;
@@ -266,8 +256,11 @@ impl Session {
                 return Ok(());
             }
         }
-        self.write_reply(Reply::new(220, format!("{} Email8 Mta at your service.", self.hostname())))
-            .await?;
+        self.write_reply(Reply::new(
+            220,
+            format!("{} Email8 Mta at your service.", self.hostname()),
+        ))
+        .await?;
         let mut buf = [0u8; 8192];
         loop {
             let n = tokio::time::timeout(
@@ -275,7 +268,9 @@ impl Session {
                 self.stream.read(&mut buf),
             )
             .await
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "session timed out"))??;
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "session timed out")
+            })??;
             if n == 0 {
                 return Ok(()); // client closed
             }
@@ -292,7 +287,8 @@ impl Session {
                         }
                     }
                     Element::Invalid(_) => {
-                        self.write_reply(Reply::new(500, "Command not recognized")).await?;
+                        self.write_reply(Reply::new(500, "Command not recognized"))
+                            .await?;
                     }
                     Element::DataChunk { data, last: _ } => {
                         // Terminal detection uses the session's bdat_last
@@ -312,7 +308,8 @@ impl Session {
             Command::Quit => return Ok(true),
             Command::Helo { host } => {
                 self.helo = Some(host.clone());
-                self.write_reply(Reply::new(250, format!("{host} at your service."))).await?;
+                self.write_reply(Reply::new(250, format!("{host} at your service.")))
+                    .await?;
             }
             Command::Ehlo { host } | Command::Lhlo { host } => {
                 self.helo = Some(host);
@@ -371,15 +368,18 @@ impl Session {
                     }
                 }
                 self.mail_from = address;
-                self.write_reply(Reply::enhanced(250, 2, 1, 0, "OK")).await?;
+                self.write_reply(Reply::enhanced(250, 2, 1, 0, "OK"))
+                    .await?;
             }
             Command::RcptTo { address, .. } => {
                 if self.mail_from.is_none() {
-                    self.write_reply(Reply::new(503, "Need MAIL command before RCPT")).await?;
+                    self.write_reply(Reply::new(503, "Need MAIL command before RCPT"))
+                        .await?;
                     return Ok(false);
                 }
                 if self.rcpts.len() >= MAX_RECIPIENTS {
-                    self.write_reply(email8::smtp_proto::too_many_recipients()).await?;
+                    self.write_reply(email8::smtp_proto::too_many_recipients())
+                        .await?;
                     return Ok(false);
                 }
                 // Recipient throttle + greylisting (unauthenticated inbound
@@ -412,7 +412,13 @@ impl Session {
                         _ => {}
                     }
                     match limits
-                        .greylist_defer(&env, &ip, &sender, &address, std::time::Duration::from_secs(300))
+                        .greylist_defer(
+                            &env,
+                            &ip,
+                            &sender,
+                            &address,
+                            std::time::Duration::from_secs(300),
+                        )
                         .await
                     {
                         Ok(true) => {
@@ -435,14 +441,17 @@ impl Session {
                     }
                 }
                 self.rcpts.push(address);
-                self.write_reply(Reply::enhanced(250, 2, 1, 5, "OK")).await?;
+                self.write_reply(Reply::enhanced(250, 2, 1, 5, "OK"))
+                    .await?;
             }
             Command::Data => {
                 if self.mail_from.is_none() || self.rcpts.is_empty() {
-                    self.write_reply(Reply::new(503, "Need RCPT command before DATA")).await?;
+                    self.write_reply(Reply::new(503, "Need RCPT command before DATA"))
+                        .await?;
                     return Ok(false);
                 }
-                self.write_reply(Reply::new(354, "Start mail input; end with <CRLF>.<CRLF>")).await?;
+                self.write_reply(Reply::new(354, "Start mail input; end with <CRLF>.<CRLF>"))
+                    .await?;
                 // Plain DATA (RFC 5321 §4.1.1.4): switch the receiver to
                 // data mode — it accumulates dot-unstuffed body lines and
                 // emits them as a DataChunk ending when the lone `.`
@@ -453,11 +462,13 @@ impl Session {
             }
             Command::Bdat { size, last } => {
                 if self.mail_from.is_none() || self.rcpts.is_empty() {
-                    self.write_reply(Reply::new(503, "Need RCPT command before BDAT")).await?;
+                    self.write_reply(Reply::new(503, "Need RCPT command before BDAT"))
+                        .await?;
                     return Ok(false);
                 }
                 if size as i64 > self.bytes_left {
-                    self.write_reply(email8::smtp_proto::transfer_quota()).await?;
+                    self.write_reply(email8::smtp_proto::transfer_quota())
+                        .await?;
                     return Ok(false);
                 }
                 self.bdat_last = last;
@@ -469,20 +480,27 @@ impl Session {
             }
             Command::Noop => self.write_reply(Reply::new(250, "OK")).await?,
             Command::Vrfy { .. } => {
-                self.write_reply(Reply::new(252, "Cannot VRFY user, but will accept message and attempt delivery")).await?;
+                self.write_reply(Reply::new(
+                    252,
+                    "Cannot VRFY user, but will accept message and attempt delivery",
+                ))
+                .await?;
             }
             Command::StartTls => {
                 // RFC 3207: reject double STARTTLS + require it before AUTH
                 // (credentials must never cross plaintext).
                 if self.starttls_taken {
-                    self.write_reply(Reply::new(501, "TLS already active")).await?;
+                    self.write_reply(Reply::new(501, "TLS already active"))
+                        .await?;
                     return Ok(false);
                 }
                 if self.authenticated.is_some() {
-                    self.write_reply(Reply::new(501, "TLS already active")).await?;
+                    self.write_reply(Reply::new(501, "TLS already active"))
+                        .await?;
                     return Ok(false);
                 }
-                self.write_reply(email8::smtp_proto::starttls_ready()).await?;
+                self.write_reply(email8::smtp_proto::starttls_ready())
+                    .await?;
                 let upgrader = self.starttls.clone();
                 match upgrader {
                     Some(upgrader) => {
@@ -512,7 +530,8 @@ impl Session {
                 }
             }
             Command::Sasl { .. } | Command::Expn { .. } | Command::Help => {
-                self.write_reply(Reply::new(502, "Command not implemented")).await?;
+                self.write_reply(Reply::new(502, "Command not implemented"))
+                    .await?;
             }
         }
         Ok(false)
@@ -561,7 +580,8 @@ impl Session {
                 let Some(token) = crate::auth::decode_xoauth2(&initial) else {
                     return auth_fail!();
                 };
-                match crate::auth::verify_submission_token(&self.config, &self.engine, &token).await {
+                match crate::auth::verify_submission_token(&self.config, &self.engine, &token).await
+                {
                     Ok(a) => {
                         self.authenticated = Some(a);
                         email8::smtp_proto::auth_success()
@@ -584,7 +604,9 @@ impl Session {
                 if parts.len() < 3 {
                     return auth_fail!();
                 }
-                match crate::auth::bridge_plain(&self.config, &self.engine, parts[1], parts[2]).await {
+                match crate::auth::bridge_plain(&self.config, &self.engine, parts[1], parts[2])
+                    .await
+                {
                     Ok(a) => {
                         self.authenticated = Some(a);
                         email8::smtp_proto::auth_success()
@@ -633,9 +655,11 @@ impl Session {
         {
             Some(env_id) => Some(env_id),
             None => {
-                let mut conn = self.pool.acquire().await.map_err(|e| {
-                    std::io::Error::other(format!("pool: {e}"))
-                })?;
+                let mut conn = self
+                    .pool
+                    .acquire()
+                    .await
+                    .map_err(|e| std::io::Error::other(format!("pool: {e}")))?;
                 let mut found: Option<Uuid> = None;
                 for rcpt in &rcpts {
                     let domain = rcpt
@@ -670,9 +694,9 @@ impl Session {
         // Received/Return-Path headers. Authenticated submissions skip
         // SPF/DMARC evaluation (we issued them).
         let resolver = crate::resolver::Resolver::from_env();
-        let client_ip = self.client_ip.unwrap_or_else(|| {
-            std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
-        });
+        let client_ip = self
+            .client_ip
+            .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
         let helo = self.helo.clone().unwrap_or_default();
         // Story 5.2 — resolve the tenant env (AUTH token or the MX
         // recipient domain) and load its configured DNSBL zones.
@@ -680,9 +704,9 @@ impl Session {
             .rsplit_once('@')
             .map(|(_, d)| d.to_ascii_lowercase());
         let reply_to_domain = None; // parsed from headers in pipeline P2
-        // Story 5.2 — resolve the tenant env (AUTH token or the MX
-        // recipient domain) and load its configured DNSBL zones. The
-        // zone Vec lives to the end of the function (the gate borrows it).
+                                    // Story 5.2 — resolve the tenant env (AUTH token or the MX
+                                    // recipient domain) and load its configured DNSBL zones. The
+                                    // zone Vec lives to the end of the function (the gate borrows it).
         let dnsbl_zones = match (self.dnsbl_zones.clone(), self.env_id) {
             (Some(cache), Some(env_id)) if self.authenticated.is_none() => {
                 Some(cache.zones_for(env_id).await)
@@ -699,7 +723,10 @@ impl Session {
                     ip: vec![client_ip.to_string()],
                     helo: (!helo.is_empty()).then(|| helo.clone()),
                     from_domain: from_domain.clone(),
-                    to_domains: rcpts.iter().filter_map(|r| r.rsplit_once('@').map(|(_, d)| d.to_ascii_lowercase())).collect(),
+                    to_domains: rcpts
+                        .iter()
+                        .filter_map(|r| r.rsplit_once('@').map(|(_, d)| d.to_ascii_lowercase()))
+                        .collect(),
                     reply_to_domain,
                     urls: Vec::new(), // URL scopes are filled by the body scan at P2
                 },
@@ -781,12 +808,22 @@ impl Session {
         let spam_pct = (!authenticated).then_some(out.spam.score_pct as f32);
         match self
             .queue
-            .enqueue_with_spam(&env_id, &mail_from, &rcpts, &processed, authenticated, spam_pct)
+            .enqueue_with_spam(
+                &env_id,
+                &mail_from,
+                &rcpts,
+                &processed,
+                authenticated,
+                spam_pct,
+            )
             .await
         {
             Ok(queue_id) => {
                 tracing::info!(queue = %queue_id, rcpts = rcpts.len(), "email8:mta: message accepted");
-                Ok(Reply::new(250, format!("Message accepted for delivery (queue {queue_id})")))
+                Ok(Reply::new(
+                    250,
+                    format!("Message accepted for delivery (queue {queue_id})"),
+                ))
             }
             Err(e) => {
                 tracing::warn!(error = %e, "email8:mta: enqueue failed");

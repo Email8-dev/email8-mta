@@ -13,9 +13,14 @@
 //! The session calls `process()` and gets back either the queue-bound
 //! bytes or a protocol-level rejection.
 
-use email8::mail_auth::{build_results, dkim_verify, dmarc_evaluate, dmarc_lookup, received_spf, spf_check, DmarcResult, SpfParams, SpfResult};
-use email8::spam::{evaluate_tags, scan_urls, SpamReport, SpamVerdict, TagSet, TagThresholds, UrlFindings};
+use email8::mail_auth::{
+    build_results, dkim_verify, dmarc_evaluate, dmarc_lookup, received_spf, spf_check, DmarcResult,
+    SpfParams, SpfResult,
+};
 use email8::spam::{check_dnsbl, DnsblElements, DnsblResolver, DnsblZone};
+use email8::spam::{
+    evaluate_tags, scan_urls, SpamReport, SpamVerdict, TagSet, TagThresholds, UrlFindings,
+};
 
 /// Pipeline inputs from the SMTP session.
 pub struct PipelineInput<'a> {
@@ -60,8 +65,7 @@ pub async fn process(
     thresholds: Option<&TagThresholds>,
     input: &PipelineInput<'_>,
 ) -> PipelineOutput {
-    let parsed = email8::mail_core::ParsedMessage::parse(input.raw)
-        .unwrap_or_default();
+    let parsed = email8::mail_core::ParsedMessage::parse(input.raw).unwrap_or_default();
     let from_domain = parsed
         .from_address()
         .and_then(|a| a.rsplit_once('@').map(|(_, d)| d.to_string()))
@@ -92,13 +96,24 @@ pub async fn process(
     // 4. Authentication-Results + Received-SPF.
     let ar = build_results(input.hostname, &spf, &from_domain, &dkim.results, &dmarc);
     let mut prepend = ar.render(input.hostname);
-    prepend.push_str(&received_spf(&spf, &format!("{} client-ip={}", input.helo_domain, input.client_ip)));
+    prepend.push_str(&received_spf(
+        &spf,
+        &format!("{} client-ip={}", input.helo_domain, input.client_ip),
+    ));
 
     // 5. Spam gate (unauthenticated sessions only).
     let mut tags: Vec<TagSet> = Vec::new();
-    let mut urls = UrlFindings { urls: vec![], ip_literal: false, zero_width: false, mixed_script: false, homograph: false };
+    let mut urls = UrlFindings {
+        urls: vec![],
+        ip_literal: false,
+        zero_width: false,
+        mixed_script: false,
+        homograph: false,
+    };
     if !input.authenticated {
-        let body_text = String::from_utf8_lossy(&input.raw[input.raw.len().min(raw_body_offset(input.raw))..]).to_string();
+        let body_text =
+            String::from_utf8_lossy(&input.raw[input.raw.len().min(raw_body_offset(input.raw))..])
+                .to_string();
         urls = scan_urls(&body_text);
         if urls.ip_literal {
             tags.push(TagSet::Url);
@@ -106,7 +121,11 @@ pub async fn process(
         if urls.zero_width || urls.mixed_script || urls.homograph {
             tags.push(TagSet::Url);
         }
-        if matches!(dmarc.disposition, email8::mail_auth::DmarcDisposition::Reject | email8::mail_auth::DmarcDisposition::Quarantine) {
+        if matches!(
+            dmarc.disposition,
+            email8::mail_auth::DmarcDisposition::Reject
+                | email8::mail_auth::DmarcDisposition::Quarantine
+        ) {
             tags.push(TagSet::Dmarc);
         }
         // Message-ID presence heuristic.
@@ -131,7 +150,11 @@ pub async fn process(
     };
     let spam = SpamReport {
         verdict,
-        score_pct: outcomes.iter().map(|o| o.weight as u32).sum::<u32>().min(100) as u8,
+        score_pct: outcomes
+            .iter()
+            .map(|o| o.weight as u32)
+            .sum::<u32>()
+            .min(100) as u8,
         tags: outcomes,
         urls: vec![urls],
         model_pct: None,
@@ -146,7 +169,11 @@ pub async fn process(
     // threshold Reject).
     let reject = if spam.verdict == SpamVerdict::Reject {
         Some("550 5.7.1 spam policy rejected this message".to_string())
-    } else if matches!(dmarc.disposition, email8::mail_auth::DmarcDisposition::Reject) && !input.authenticated {
+    } else if matches!(
+        dmarc.disposition,
+        email8::mail_auth::DmarcDisposition::Reject
+    ) && !input.authenticated
+    {
         Some("550 5.7.1 DMARC policy (p=reject)".to_string())
     } else {
         None
@@ -163,17 +190,26 @@ pub async fn process(
     let return_path = format!("Return-Path: <{}>\r\n", input.mail_from);
 
     let raw = Vec::from(input.raw);
-    let mut out = Vec::with_capacity(prepend.len() + received.len() + return_path.len() + raw.len());
+    let mut out =
+        Vec::with_capacity(prepend.len() + received.len() + return_path.len() + raw.len());
     out.extend_from_slice(received.as_bytes());
     out.extend_from_slice(return_path.as_bytes());
     out.extend_from_slice(prepend.as_bytes());
     out.extend_from_slice(&raw);
 
-    PipelineOutput { raw: out, spf, dmarc, spam, reject }
+    PipelineOutput {
+        raw: out,
+        spf,
+        dmarc,
+        spam,
+        reject,
+    }
 }
 
 fn raw_body_offset(raw: &[u8]) -> usize {
-    memchr::memmem::find(raw, b"\r\n\r\n").map(|p| p + 4).unwrap_or(raw.len())
+    memchr::memmem::find(raw, b"\r\n\r\n")
+        .map(|p| p + 4)
+        .unwrap_or(raw.len())
 }
 
 #[cfg(test)]
@@ -186,11 +222,9 @@ mod tests {
     #[tokio::test]
     async fn pipeline_headers_and_allow() {
         // SPF pass + DMARC none.
-        let dns = FnDnsTxt(|name: &str| {
-            match name {
-                "football.example.com" => Ok(vec!["v=spf1 +all".into()]),
-                _ => Err("nx".into()),
-            }
+        let dns = FnDnsTxt(|name: &str| match name {
+            "football.example.com" => Ok(vec!["v=spf1 +all".into()]),
+            _ => Err("nx".into()),
         });
         let out = process(
             &dns,
@@ -247,7 +281,8 @@ mod tests {
         // Force the URL tag to reject-level weight.
         t.tag_weights.insert("url".into(), 100);
         // Body with IP-literal URL.
-        let raw = b"From: a@b.c\r\nSubject: s\r\nMessage-ID: <m@x>\r\n\r\nVisit http://192.0.2.9/x\r\n";
+        let raw =
+            b"From: a@b.c\r\nSubject: s\r\nMessage-ID: <m@x>\r\n\r\nVisit http://192.0.2.9/x\r\n";
         let out = process(
             &dns,
             Some(&t),

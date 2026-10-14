@@ -29,8 +29,12 @@ pub struct Resolver {
 impl Resolver {
     pub fn from_env() -> Self {
         Self {
-            doh_url: std::env::var("EMAIL8_DOH_URL").ok().filter(|s| !s.is_empty()),
-            doh_token: std::env::var("EMAIL8_DOH_TOKEN").ok().filter(|s| !s.is_empty()),
+            doh_url: std::env::var("EMAIL8_DOH_URL")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            doh_token: std::env::var("EMAIL8_DOH_TOKEN")
+                .ok()
+                .filter(|s| !s.is_empty()),
         }
     }
 }
@@ -45,11 +49,14 @@ impl email8::mail_auth::DnsTxt for Resolver {
         if let Some(domain) = name.strip_prefix("_mx.") {
             return lookup_mx_doh(&self.doh_url, &self.doh_token, domain).await;
         }
-        if name.starts_with("_exists.") {
+        if let Some(host) = name.strip_prefix("_exists.") {
             // RFC 7208 exists: — any A record proves the name exists.
-            let host = &name["_exists.".len()..];
             let records = lookup_a(host).await?;
-            return Ok(if records.is_empty() { vec![] } else { vec!["1".into()] });
+            return Ok(if records.is_empty() {
+                vec![]
+            } else {
+                vec!["1".into()]
+            });
         }
         // Plain TXT record.
         lookup_txt_doh(&self.doh_url, &self.doh_token, name).await
@@ -82,10 +89,7 @@ async fn doh_query(
     let Some(base) = base else {
         return Err(format!("no DoH configured for {name} {rrtype}"));
     };
-    let url = format!(
-        "{base}?name={}&type={rrtype}",
-        percent_encoding(name)
-    );
+    let url = format!("{base}?name={}&type={rrtype}", percent_encoding(name));
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()

@@ -26,7 +26,11 @@ pub struct SmtpAuth {
 /// Decode a SASL XOAUTH2/OAUTHBEARER initial response into the bearer
 /// token. Returns `None` on malformed input (the session answers 501).
 pub fn decode_xoauth2(initial: &str) -> Option<String> {
-    let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, initial.as_bytes()).ok()?;
+    let decoded = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        initial.as_bytes(),
+    )
+    .ok()?;
     let text = String::from_utf8(decoded).ok()?;
     // `user=...\x01auth=Bearer <token>\x01\x01` (or XOAUTH2 `auth=<token>`).
     for part in text.split('\x01') {

@@ -115,7 +115,11 @@ pub async fn record_external_report(
     } else {
         return; // not a report
     };
-    let domain = from_address.rsplit('@').next().unwrap_or_default().to_string();
+    let domain = from_address
+        .rsplit('@')
+        .next()
+        .unwrap_or_default()
+        .to_string();
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
         .execute(pool)
@@ -184,9 +188,7 @@ async fn close_windows(
         // consumer stores the payload; the envelope identifies the
         // window + policy for viewers (single-tenant local loop).
         let body = serde_json::to_vec(&report)?;
-        let subject = format!(
-            "Report Domain: {domain} Submitter: {domain} Report-ID: {id}"
-        );
+        let subject = format!("Report Domain: {domain} Submitter: {domain} Report-ID: {id}");
         let raw = format!(
             "From: postmaster@{domain}\r\nSubject: {subject}\r\n\
              To: postmaster@{domain}\r\nDate: {date}\r\n\
@@ -210,12 +212,10 @@ async fn close_windows(
             continue;
         }
         let _ = config;
-        sqlx::query(
-            "UPDATE email8.reports_dmarc SET submitted_at = now() WHERE id = $1",
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
+        sqlx::query("UPDATE email8.reports_dmarc SET submitted_at = now() WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
         tracing::info!(report_id = id, %domain, "email8:mta: DMARC aggregate submitted");
     }
 

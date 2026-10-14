@@ -6,12 +6,11 @@
 //! Service self-registration data for Email8:Mta.
 
 use sentin8::registration::{
-    AdminScope, AdminUi, AdminUiPage, ErrorCode, M2mGrant, PgRole, Registration, SqlMigration,
-    PolicySetDecl, RelationDecl,
+    AdminScope, AdminUi, AdminUiPage, ErrorCode, M2mGrant, PgRole, PolicySetDecl, Registration,
+    RelationDecl, SqlMigration,
 };
 #[cfg(not(test))]
 use utoipa::OpenApi;
-
 
 /// The Shield text of the declared scope-mirror set — public so the
 /// policy wiring tests (POLICY-7) assert against the REAL seed.
@@ -107,14 +106,21 @@ const RELATIONS: &[RelationDecl] = &[];
 /// DESIGN.md §3.1, without which the MTA's GLIDE rate-limit connections
 /// can never connect) and carries the scopes Store's internal-data-API
 /// gate checks for SMTP ingestion.
-const M2M_GRANTS: &[M2mGrant] = &[M2mGrant {
-    workload: "email8:mta",
-    scopes: &["email8:mail:read", "email8:mail:write", "email8:mail:receive"],
-}, M2mGrant {
-    // Shield hot-reload consumer (BUSPOLICY-1 — see email8-access).
-    workload: "email8:mta-policy",
-    scopes: &["sentin8:bus:consume", "sentin8:stat:measure"],
-}];
+const M2M_GRANTS: &[M2mGrant] = &[
+    M2mGrant {
+        workload: "email8:mta",
+        scopes: &[
+            "email8:mail:read",
+            "email8:mail:write",
+            "email8:mail:receive",
+        ],
+    },
+    M2mGrant {
+        // Shield hot-reload consumer (BUSPOLICY-1 — see email8-access).
+        workload: "email8:mta-policy",
+        scopes: &["sentin8:bus:consume", "sentin8:stat:measure"],
+    },
+];
 
 const PG_ROLES: &[PgRole] = &[PgRole {
     scope: "email8:mail:read,email8:mail:write,email8:queue:read,email8:queue:write",
@@ -125,44 +131,135 @@ const PG_ROLES: &[PgRole] = &[PgRole {
 }];
 
 const ADMIN_SCOPES: &[AdminScope] = &[
-    AdminScope::Typed { role: "email8:admin", scope: "email8:admin:queue" },
-    AdminScope::Typed { role: "email8:admin", scope: "email8:admin:dkim" },
-    AdminScope::Typed { role: "email8:admin", scope: "email8:admin:reports" },
-    AdminScope::Typed { role: "email8:admin", scope: "email8:admin:spam" },
-    AdminScope::Typed { role: "email8:admin", scope: "email8:admin:scripts" },
+    AdminScope::Typed {
+        role: "email8:admin",
+        scope: "email8:admin:queue",
+    },
+    AdminScope::Typed {
+        role: "email8:admin",
+        scope: "email8:admin:dkim",
+    },
+    AdminScope::Typed {
+        role: "email8:admin",
+        scope: "email8:admin:reports",
+    },
+    AdminScope::Typed {
+        role: "email8:admin",
+        scope: "email8:admin:spam",
+    },
+    AdminScope::Typed {
+        role: "email8:admin",
+        scope: "email8:admin:scripts",
+    },
     // Policy-admin surface (policy design §3.6; principles §6.0b per-service scope).
-    AdminScope::Typed { role: "email8:mta:admin", scope: "email8:mta:policy:read" },
-    AdminScope::Typed { role: "email8:mta:admin", scope: "email8:mta:policy:write" },
+    AdminScope::Typed {
+        role: "email8:mta:admin",
+        scope: "email8:mta:policy:read",
+    },
+    AdminScope::Typed {
+        role: "email8:mta:admin",
+        scope: "email8:mta:policy:write",
+    },
 ];
 
 const ERROR_CODES: &[ErrorCode] = &[
-    ErrorCode { enum_name: "Email8DmarcPolicyReject", error_code: "email8_dmarc_policy_reject", status_code: 422 },
-    ErrorCode { enum_name: "Email8SpamScoreReject", error_code: "email8_spam_score_reject", status_code: 422 },
-    ErrorCode { enum_name: "Email8Greylisted", error_code: "email8_greylisted", status_code: 429 },
-    ErrorCode { enum_name: "Email8QueueFull", error_code: "email8_queue_full", status_code: 402 },
-    ErrorCode { enum_name: "Email8RelayDenied", error_code: "email8_relay_denied", status_code: 403 },
-    ErrorCode { enum_name: "Email8SenderAddressRejected", error_code: "email8_sender_address_rejected", status_code: 403 },
-    ErrorCode { enum_name: "Email8DkimKeyNotFound", error_code: "email8_dkim_key_not_found", status_code: 404 },
-    ErrorCode { enum_name: "Email8DomainNotFound", error_code: "email8_domain_not_found", status_code: 404 },
+    ErrorCode {
+        enum_name: "Email8DmarcPolicyReject",
+        error_code: "email8_dmarc_policy_reject",
+        status_code: 422,
+    },
+    ErrorCode {
+        enum_name: "Email8SpamScoreReject",
+        error_code: "email8_spam_score_reject",
+        status_code: 422,
+    },
+    ErrorCode {
+        enum_name: "Email8Greylisted",
+        error_code: "email8_greylisted",
+        status_code: 429,
+    },
+    ErrorCode {
+        enum_name: "Email8QueueFull",
+        error_code: "email8_queue_full",
+        status_code: 402,
+    },
+    ErrorCode {
+        enum_name: "Email8RelayDenied",
+        error_code: "email8_relay_denied",
+        status_code: 403,
+    },
+    ErrorCode {
+        enum_name: "Email8SenderAddressRejected",
+        error_code: "email8_sender_address_rejected",
+        status_code: 403,
+    },
+    ErrorCode {
+        enum_name: "Email8DkimKeyNotFound",
+        error_code: "email8_dkim_key_not_found",
+        status_code: 404,
+    },
+    ErrorCode {
+        enum_name: "Email8DomainNotFound",
+        error_code: "email8_domain_not_found",
+        status_code: 404,
+    },
 ];
 
 const ADMIN_UI_PAGES: &[AdminUiPage] = &[
-    AdminUiPage { route: "queue", label: "Queue", ui_endpoint: "/v1/admin/ui/queue", data_endpoint: "/v1/admin/queue", icon: "0xe8d3" },
-    AdminUiPage { route: "dkim", label: "DKIM Keys", ui_endpoint: "/v1/admin/ui/dkim", data_endpoint: "/v1/admin/dkim", icon: "0xe068" },
-    AdminUiPage { route: "reports", label: "Reports", ui_endpoint: "/v1/admin/ui/reports", data_endpoint: "/v1/admin/reports", icon: "0xe873" },
-    AdminUiPage { route: "spam", label: "Spam Policy", ui_endpoint: "/v1/admin/ui/spam", data_endpoint: "/v1/admin/spam", icon: "0xe868" },
-    AdminUiPage { route: "hooks", label: "MTA Hooks", ui_endpoint: "/v1/admin/ui/hooks", data_endpoint: "/v1/admin/hooks", icon: "0xe8e1" },
-    AdminUiPage { route: "domains", label: "Domains", ui_endpoint: "/v1/admin/ui/domains", data_endpoint: "/v1/admin/domains", icon: "0xe80b" },
+    AdminUiPage {
+        route: "queue",
+        label: "Queue",
+        ui_endpoint: "/v1/admin/ui/queue",
+        data_endpoint: "/v1/admin/queue",
+        icon: "0xe8d3",
+    },
+    AdminUiPage {
+        route: "dkim",
+        label: "DKIM Keys",
+        ui_endpoint: "/v1/admin/ui/dkim",
+        data_endpoint: "/v1/admin/dkim",
+        icon: "0xe068",
+    },
+    AdminUiPage {
+        route: "reports",
+        label: "Reports",
+        ui_endpoint: "/v1/admin/ui/reports",
+        data_endpoint: "/v1/admin/reports",
+        icon: "0xe873",
+    },
+    AdminUiPage {
+        route: "spam",
+        label: "Spam Policy",
+        ui_endpoint: "/v1/admin/ui/spam",
+        data_endpoint: "/v1/admin/spam",
+        icon: "0xe868",
+    },
+    AdminUiPage {
+        route: "hooks",
+        label: "MTA Hooks",
+        ui_endpoint: "/v1/admin/ui/hooks",
+        data_endpoint: "/v1/admin/hooks",
+        icon: "0xe8e1",
+    },
+    AdminUiPage {
+        route: "domains",
+        label: "Domains",
+        ui_endpoint: "/v1/admin/ui/domains",
+        data_endpoint: "/v1/admin/domains",
+        icon: "0xe80b",
+    },
 ];
 
 const SQL_1_INIT: &str = include_str!("../sql/init.sql");
 
 fn openapi_spec() -> serde_json::Value {
-
     // Portable stub when #[path]-included from tests (POLICY-7): the real
     // derive lives in the crate's openapi module, which tests don't link.
     #[cfg(not(test))]
-    { return serde_json::to_value(crate::openapi::MtaOpenApi::openapi()).unwrap_or(serde_json::Value::Null); }
+    {
+        serde_json::to_value(crate::openapi::MtaOpenApi::openapi())
+            .unwrap_or(serde_json::Value::Null)
+    }
     #[cfg(test)]
     return serde_json::Value::Null;
 }
@@ -183,7 +280,11 @@ pub fn print(section: Option<String>) -> anyhow::Result<()> {
             service_flag: "email8",
             pages: ADMIN_UI_PAGES,
         }),
-        sql_migrations: vec![SqlMigration { version: 1, name: "init", sql: SQL_1_INIT }],
+        sql_migrations: vec![SqlMigration {
+            version: 1,
+            name: "init",
+            sql: SQL_1_INIT,
+        }],
         audit_findings: None,
         service_actions: None,
         m2m_grants: Some(M2M_GRANTS),

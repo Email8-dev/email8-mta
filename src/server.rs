@@ -41,10 +41,18 @@ pub async fn build_state(core: sentin8::shell::ServiceCore) -> anyhow::Result<Ap
     // hot-reload consumer, stat emitter). Services only consume it.
 
     // Queue manager loop (mta design §3.1).
-    crate::queue::spawn(state.core.pool.clone(), config.clone(), queue_writer.clone());
+    crate::queue::spawn(
+        state.core.pool.clone(),
+        config.clone(),
+        queue_writer.clone(),
+    );
 
     // Report window close loop (mta design §4 — DMARC/TLS-RPT).
-    crate::reports::spawn(state.core.pool.clone(), config.clone(), queue_writer.clone());
+    crate::reports::spawn(
+        state.core.pool.clone(),
+        config.clone(),
+        queue_writer.clone(),
+    );
 
     // Metric telemetry (design §P4.9, SDD §2.6): hourly sweeps publishing
     // frames on the shared MemBus telemetry path — the shell boot
@@ -57,10 +65,50 @@ pub async fn build_state(core: sentin8::shell::ServiceCore) -> anyhow::Result<Ap
     // listener map to Valkey for gate discovery). An explicit env-pinned
     // port (dev direct-bind mode) is honored as-is.
     let mut bound = Vec::new();
-    bound.extend(spawn_tcp_listener(config.clone(), queue_writer.clone(), state.core.pool.clone(), state.core.admin.policy.clone(), config.submission.clone(), "submission").await?);
-    bound.extend(spawn_tcp_listener(config.clone(), queue_writer.clone(), state.core.pool.clone(), state.core.admin.policy.clone(), config.smtp.clone(), "smtp").await?);
-    bound.extend(spawn_tcp_listener(config.clone(), queue_writer.clone(), state.core.pool.clone(), state.core.admin.policy.clone(), config.smtps.clone(), "submissions").await?);
-    bound.extend(spawn_tcp_listener(config.clone(), queue_writer.clone(), state.core.pool.clone(), state.core.admin.policy.clone(), config.lmtp.clone(), "lmtp").await?);
+    bound.extend(
+        spawn_tcp_listener(
+            config.clone(),
+            queue_writer.clone(),
+            state.core.pool.clone(),
+            state.core.admin.policy.clone(),
+            config.submission.clone(),
+            "submission",
+        )
+        .await?,
+    );
+    bound.extend(
+        spawn_tcp_listener(
+            config.clone(),
+            queue_writer.clone(),
+            state.core.pool.clone(),
+            state.core.admin.policy.clone(),
+            config.smtp.clone(),
+            "smtp",
+        )
+        .await?,
+    );
+    bound.extend(
+        spawn_tcp_listener(
+            config.clone(),
+            queue_writer.clone(),
+            state.core.pool.clone(),
+            state.core.admin.policy.clone(),
+            config.smtps.clone(),
+            "submissions",
+        )
+        .await?,
+    );
+    bound.extend(
+        spawn_tcp_listener(
+            config.clone(),
+            queue_writer.clone(),
+            state.core.pool.clone(),
+            state.core.admin.policy.clone(),
+            config.lmtp.clone(),
+            "lmtp",
+        )
+        .await?,
+    );
 
     // Publish the actual listener map for the gate (best-effort).
     let instance_key = format!(
@@ -117,14 +165,21 @@ async fn spawn_tcp_listener(
     // Valkey rate/greylist/fail2ban handles (design §6) — one shared
     // connection manager per listener; unavailable Valkey degrades the
     // session to no limits.
-    let limits = crate::valkey_limits::ValkeyLimits::connect(&cfg.valkey_url).await.ok();
+    let limits = crate::valkey_limits::ValkeyLimits::connect(&cfg.valkey_url)
+        .await
+        .ok();
     if limits.is_none() {
         tracing::warn!(url = %cfg.valkey_url, "email8:mta: valkey unavailable — rate limits/greylisting disabled");
     }
     // Story 5.2 — per-env DNSBL zone cache shared across sessions.
     let dnsbl_zones = crate::dnsbl_config::DnsblZoneCache::new(pool.clone());
     tokio::spawn(async move {
-        tracing::info!(port = bound_port, lmtp = spec.lmtp, implicit_tls = spec.implicit_tls, "email8:mta: listener bound");
+        tracing::info!(
+            port = bound_port,
+            lmtp = spec.lmtp,
+            implicit_tls = spec.implicit_tls,
+            "email8:mta: listener bound"
+        );
         loop {
             match listener.accept().await {
                 Ok((socket, peer)) => {
@@ -159,11 +214,13 @@ async fn spawn_tcp_listener(
             }
         }
     });
-    Ok(vec![email8::gate::contracts::listener_registry::BoundListener {
-        proto,
-        port: bound_port,
-        implicit_tls: spec.implicit_tls,
-    }])
+    Ok(vec![
+        email8::gate::contracts::listener_registry::BoundListener {
+            proto,
+            port: bound_port,
+            implicit_tls: spec.implicit_tls,
+        },
+    ])
 }
 
 pub fn routes(router: axum::Router<AppState>) -> axum::Router<AppState> {
@@ -172,34 +229,55 @@ pub fn routes(router: axum::Router<AppState>) -> axum::Router<AppState> {
         // Internal submit (Store proxies JMAP EmailSubmission/set here).
         .route("/v1/internal/submit", post(crate::submit::submit))
         // Admin API + RFW (queue viewer, DKIM, reports).
-        .route("/v1/admin/{*page}", post(crate::admin::admin_data).get(crate::admin::get_admin_ui))
+        .route(
+            "/v1/admin/{*page}",
+            post(crate::admin::admin_data).get(crate::admin::get_admin_ui),
+        )
         // ── Sentin8:Policy admin API (Phase 28 §3.6 — shared
         // implementation; handlers generic over this state via
         // HasPolicyAdmin).
-        .route("/v1/admin/policy-sets",
-            get(sentin8::shield::admin::list_policy_sets::<AppState>))
-        .route("/v1/admin/policy-sets/{name}",
+        .route(
+            "/v1/admin/policy-sets",
+            get(sentin8::shield::admin::list_policy_sets::<AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/{name}",
             get(sentin8::shield::admin::get_policy_set::<AppState>)
                 .put(sentin8::shield::admin::put_policy_set::<AppState>)
-                .delete(sentin8::shield::admin::delete_policy_set::<AppState>))
-        .route("/v1/admin/policy-sets/{name}/test",
-            post(sentin8::shield::admin::test_policy_set::<AppState>))
-        .route("/v1/admin/policy-sets/enforce",
-            post(sentin8::shield::admin::admin_enforce_policy_set::<AppState>))
-        .route("/v1/admin/policy-sets/shadow",
-            post(sentin8::shield::admin::admin_shadow_policy_set::<AppState>))
-        .route("/v1/admin/policy-sets/disable",
-            post(sentin8::shield::admin::admin_disable_policy_set::<AppState>))
-        .route("/v1/admin/relations",
+                .delete(sentin8::shield::admin::delete_policy_set::<AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/{name}/test",
+            post(sentin8::shield::admin::test_policy_set::<AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/enforce",
+            post(sentin8::shield::admin::admin_enforce_policy_set::<AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/shadow",
+            post(sentin8::shield::admin::admin_shadow_policy_set::<AppState>),
+        )
+        .route(
+            "/v1/admin/policy-sets/disable",
+            post(sentin8::shield::admin::admin_disable_policy_set::<AppState>),
+        )
+        .route(
+            "/v1/admin/relations",
             get(sentin8::shield::admin::list_relations::<AppState>)
                 .put(sentin8::shield::admin::put_relation::<AppState>)
-                .delete(sentin8::shield::admin::delete_relation::<AppState>))
-        .route("/v1/admin/relations/check",
-            get(sentin8::shield::admin::check_relation::<AppState>))
-        .route("/v1/admin/attributes",
+                .delete(sentin8::shield::admin::delete_relation::<AppState>),
+        )
+        .route(
+            "/v1/admin/relations/check",
+            get(sentin8::shield::admin::check_relation::<AppState>),
+        )
+        .route(
+            "/v1/admin/attributes",
             get(sentin8::shield::admin::list_attributes::<AppState>)
                 .put(sentin8::shield::admin::put_attribute::<AppState>)
-                .delete(sentin8::shield::admin::delete_attribute::<AppState>))
+                .delete(sentin8::shield::admin::delete_attribute::<AppState>),
+        )
 }
 
 /// Shared policy-admin surface accessor (Phase 28 §3.6): the boot

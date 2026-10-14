@@ -53,7 +53,9 @@ impl MtaConfig {
             port: env_u16("EMAIL8_MTA_PORT", 0),
             database_url: env_string("EMAIL8_MTA_DATABASE_URL")
                 .or_else(|| env_string("DATABASE_URL"))
-                .unwrap_or_else(|| sentin8::config::Sentin8Config::default_database_url().to_string()),
+                .unwrap_or_else(|| {
+                    sentin8::config::Sentin8Config::default_database_url().to_string()
+                }),
             sentin8_bus_url: env_string("SENTIN8_BUS_URL").unwrap_or_else(|| cfg.sentin8_bus_url()),
             sentin8_storage_url: env_string("SENTIN8_STORAGE_URL")
                 .unwrap_or_else(|| format!("https://{}", cfg.platform_domain("storage"))),
@@ -70,12 +72,26 @@ impl MtaConfig {
                 implicit_tls: false,
                 lmtp: false,
             },
-            smtp: TcpListenerSpec { port: env_u16("EMAIL8_MTA_SMTP_PORT", 0), implicit_tls: false, lmtp: false },
-            smtps: TcpListenerSpec { port: env_u16("EMAIL8_MTA_SMTPS_PORT", 0), implicit_tls: true, lmtp: false },
-            lmtp: TcpListenerSpec { port: env_u16("EMAIL8_MTA_LMTP_PORT", 0), implicit_tls: false, lmtp: true },
+            smtp: TcpListenerSpec {
+                port: env_u16("EMAIL8_MTA_SMTP_PORT", 0),
+                implicit_tls: false,
+                lmtp: false,
+            },
+            smtps: TcpListenerSpec {
+                port: env_u16("EMAIL8_MTA_SMTPS_PORT", 0),
+                implicit_tls: true,
+                lmtp: false,
+            },
+            lmtp: TcpListenerSpec {
+                port: env_u16("EMAIL8_MTA_LMTP_PORT", 0),
+                implicit_tls: false,
+                lmtp: true,
+            },
             valkey_url: env_string("VALKEY_URL")
                 .or_else(|| env_string("SENTIN8_VALKEY_URL"))
-                .unwrap_or_else(|| sentin8::config::Sentin8Config::default_valkey_url().to_string()),
+                .unwrap_or_else(|| {
+                    sentin8::config::Sentin8Config::default_valkey_url().to_string()
+                }),
             quota_max_count: std::env::var("EMAIL8_QUOTA_MAX_COUNT")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -108,5 +124,8 @@ fn env_string(key: &str) -> Option<String> {
 }
 
 fn env_u16(key: &str, default: u16) -> u16 {
-    std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(default)
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
 }

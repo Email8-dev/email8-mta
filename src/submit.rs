@@ -15,7 +15,7 @@ use axum::{extract::State, http::HeaderMap, Json};
 use sqlx::Row;
 use uuid::Uuid;
 
-use email8::contracts::{QueueName, SubmitRequest, SubmitResponse, message_source};
+use email8::contracts::{message_source, QueueName, SubmitRequest, SubmitResponse};
 use email8::mail_core::ParsedMessage;
 
 use crate::config::MtaConfig;
@@ -76,7 +76,10 @@ impl QueueWriter {
         let sender_key = return_path.to_ascii_lowercase();
         for (kind, key) in [
             ("sender", sender_key.clone()),
-            ("rcpt_domain", sender_key.split('@').next_back().unwrap_or("").to_string()),
+            (
+                "rcpt_domain",
+                sender_key.split('@').next_back().unwrap_or("").to_string(),
+            ),
         ] {
             let used_row = sqlx::query(
                 r#"INSERT INTO email8.queue_quota_counters
@@ -150,12 +153,21 @@ impl QueueWriter {
 
         // 1. Content-address the blob (dedup via put-if-absent).
         let blob_hash = blake3::hash(raw).to_hex().to_string();
-        let storage =
-            crate::storage_auth::storage_client(&self.pool, &self.config.sentin8_storage_url, &["storage:env:write"])
-                .await
-                .map_err(|e| format!("storage client: {e}"))?;
+        let storage = crate::storage_auth::storage_client(
+            &self.pool,
+            &self.config.sentin8_storage_url,
+            &["storage:env:write"],
+        )
+        .await
+        .map_err(|e| format!("storage client: {e}"))?;
         if let Err(e) = storage
-            .put_if_absent("", "", &format!("email8/blobs/{blob_hash}"), "application/octet-stream", raw.to_vec())
+            .put_if_absent(
+                "",
+                "",
+                &format!("email8/blobs/{blob_hash}"),
+                "application/octet-stream",
+                raw.to_vec(),
+            )
             .await
         {
             return Err(format!("blob store: {e}"));
@@ -173,15 +185,16 @@ impl QueueWriter {
             .await;
 
         // Parse headers once for thread-relevant metadata (loop guard).
-        if let Some(parsed) = ParsedMessage::parse(raw).ok() {
+        if let Ok(parsed) = ParsedMessage::parse(raw) {
             if parsed.reference_ids().len() > 50 {
                 return Err("received-header loop detected".into());
             }
         }
 
-        let expires_at = chrono::Utc::now() + chrono::Duration::seconds(
-            QueueName::Remote.expiry_ttl().unwrap_or(3 * 24 * 3600) as i64,
-        );
+        let expires_at = chrono::Utc::now()
+            + chrono::Duration::seconds(
+                QueueName::Remote.expiry_ttl().unwrap_or(3 * 24 * 3600) as i64
+            );
         let source_flags = if authenticated {
             message_source::AUTHENTICATED
         } else {
@@ -257,15 +270,20 @@ impl QueueWriter {
         tx.commit().await.map_err(|e| format!("tx commit: {e}"))?;
 
         // 3. Outbox event: message received (inbox-first bus).
-        emit_event(&self.pool, *env_id, "email8:smtp:message:received", serde_json::json!({
-            "env_id": env_id,
-            "queue_id": message_id,
-            "return_path": return_path,
-            "recipients": recipients,
-            "blob_hash": blob_hash,
-            "size": raw.len(),
-            "source_flags": source_flags,
-        }))
+        emit_event(
+            &self.pool,
+            *env_id,
+            "email8:smtp:message:received",
+            serde_json::json!({
+                "env_id": env_id,
+                "queue_id": message_id,
+                "return_path": return_path,
+                "recipients": recipients,
+                "blob_hash": blob_hash,
+                "size": raw.len(),
+                "source_flags": source_flags,
+            }),
+        )
         .await;
 
         Ok(message_id)
@@ -293,8 +311,7 @@ pub async fn submit(
     // Re-verify the caller's scope at Mta (the Store proxy attaches the
     // user token; Mta never trusts the Store's check alone).
     let a = sentin8::shell::verify_token(&state.core.config, &headers)
-        .await
-        .map_err(|(code, msg)| (code, msg))?;
+        .await?;
     // Step-5 policy decision (Phase 28 §4.3): Mta never trusts the
     // Store's check alone — submission authority is Shield's call.
     sentin8::shell::policy::require(
@@ -303,8 +320,7 @@ pub async fn submit(
         &headers,
         sentin8::shield::EvalTarget::new("email8:submission:send"),
     )
-    .await
-    .map_err(|(code, msg)| (code, msg))?;
+    .await?;
     let token_env = a.env_id();
     if token_env != req.env_id && !a.is_platform_admin() {
         return Err((axum::http::StatusCode::FORBIDDEN, "env mismatch".into()));

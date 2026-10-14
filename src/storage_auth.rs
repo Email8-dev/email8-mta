@@ -32,12 +32,9 @@ pub async fn storage_client(
     let issuer = std::env::var("SENTIN8_AUTH_ISSUER")
         .unwrap_or_else(|_| sentin8::config::Sentin8Config::from_env().sentin8_auth_issuer());
     let ca_cert_path = sentin8::auth::m2m::platform_ca_path();
-    let cert = sentin8::auth::m2m::ensure_workload_certificate(
-        &issuer,
-        "email8:mta",
-        &ca_cert_path,
-    )
-    .await?;
+    let cert =
+        sentin8::auth::m2m::ensure_workload_certificate(&issuer, "email8:mta", &ca_cert_path)
+            .await?;
     sentin8_storage_sdk::client::StorageClient::with_workload_identity(
         storage_url,
         &cert.ca_cert_path,
@@ -58,18 +55,13 @@ pub type SharedStorage = Arc<sentin8_storage_sdk::client::StorageClient>;
 ///
 /// # Errors
 /// Returns the certificate-ensure or transport-build failure.
-pub async fn internal_http_client(
-    _pool: &sqlx::PgPool,
-) -> anyhow::Result<reqwest::Client> {
+pub async fn internal_http_client(_pool: &sqlx::PgPool) -> anyhow::Result<reqwest::Client> {
     let issuer = std::env::var("SENTIN8_AUTH_ISSUER")
         .unwrap_or_else(|_| sentin8::config::Sentin8Config::from_env().sentin8_auth_issuer());
     let ca_cert_path = sentin8::auth::m2m::platform_ca_path();
-    let cert = sentin8::auth::m2m::ensure_workload_certificate(
-        &issuer,
-        "email8:mta",
-        &ca_cert_path,
-    )
-    .await?;
+    let cert =
+        sentin8::auth::m2m::ensure_workload_certificate(&issuer, "email8:mta", &ca_cert_path)
+            .await?;
     let mtls = sentin8::middleware::mtls::MtlsConfig::new(
         &cert.ca_cert_path,
         &cert.cert_path,

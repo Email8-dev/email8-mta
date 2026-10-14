@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use email8::spam::{classify, FtrlModel, Features};
+use email8::spam::{classify, Features, FtrlModel};
 
 use crate::config::MtaConfig;
 use crate::submit::QueueWriter;
@@ -71,7 +71,10 @@ async fn training_pass(pool: &sqlx::PgPool, config: &Arc<MtaConfig>) -> Result<(
         let account_id: Uuid = r.get("account_id");
         let email_id: Uuid = r.get("email_id");
         let label: bool = r.get("label");
-        by_account.entry((env_id, account_id)).or_default().push((email_id, label));
+        by_account
+            .entry((env_id, account_id))
+            .or_default()
+            .push((email_id, label));
     }
 
     for ((env_id, account_id), samples) in by_account {
@@ -141,7 +144,13 @@ async fn train_account(
     .map_err(|e| format!("storage client: {e}"))?;
     let hash = blake3::hash(&artifact).to_hex().to_string();
     storage
-        .put("", "", &format!("email8/models/spam/{account_id}.json"), "application/json", artifact.to_vec())
+        .put(
+            "",
+            "",
+            &format!("email8/models/spam/{account_id}.json"),
+            "application/json",
+            artifact.to_vec(),
+        )
         .await
         .map_err(|e| format!("model artifact store: {e}"))?;
 

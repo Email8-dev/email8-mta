@@ -22,7 +22,8 @@ pub struct LocalFileSecrets {
 
 impl LocalFileSecrets {
     pub fn from_env() -> Self {
-        let base = std::env::var("SENTIN8_SECRETS_DIR").unwrap_or_else(|_| "/etc/sentin8/secrets".into());
+        let base =
+            std::env::var("SENTIN8_SECRETS_DIR").unwrap_or_else(|_| "/etc/sentin8/secrets".into());
         Self { base: base.into() }
     }
 
@@ -33,9 +34,8 @@ impl LocalFileSecrets {
     pub fn resolve(&self, uri: &str) -> Result<SecretValue, SecretError> {
         let r = SecretRef::parse(uri)?;
         let path = self.base.join(&r.path);
-        let bytes = std::fs::read(&path).map_err(|e| {
-            SecretError::InvalidRef(format!("read {}: {e}", path.display()))
-        })?;
+        let bytes = std::fs::read(&path)
+            .map_err(|e| SecretError::InvalidRef(format!("read {}: {e}", path.display())))?;
         Ok(SecretValue::new(bytes))
     }
 }
@@ -112,17 +112,19 @@ pub const SIGN_HEADERS: &[&str] = &[
 /// Sign a raw message with every active signer for the given signing
 /// domain (envelope domain by default). Returns the header blocks to
 /// prepend, outermost-first.
-pub fn sign_message(
-    signers: &[ActiveSigner],
-    signing_domain: &str,
-    raw: &[u8],
-) -> Vec<String> {
+pub fn sign_message(signers: &[ActiveSigner], signing_domain: &str, raw: &[u8]) -> Vec<String> {
     let mut blocks = Vec::new();
     for signer in signers {
         if !signer.domain.eq_ignore_ascii_case(signing_domain) {
             continue;
         }
-        match email8::mail_auth::dkim_sign(&signer.key, &signer.domain, &signer.selector, SIGN_HEADERS, raw) {
+        match email8::mail_auth::dkim_sign(
+            &signer.key,
+            &signer.domain,
+            &signer.selector,
+            SIGN_HEADERS,
+            raw,
+        ) {
             Ok(header) => blocks.push(header),
             Err(e) => tracing::warn!(error = %e, domain = %signer.domain, "dkim signing failed"),
         }
@@ -141,10 +143,7 @@ pub async fn advance_rotation(
     key_id: i64,
     now: chrono::DateTime<chrono::Utc>,
 ) -> Result<Option<&'static str>, String> {
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(|e| format!("tx: {e}"))?;
+    let mut tx = pool.begin().await.map_err(|e| format!("tx: {e}"))?;
     let row: Option<(String, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
         "SELECT stage, next_transition FROM email8.dkim_keys WHERE id = $1 FOR UPDATE",
     )

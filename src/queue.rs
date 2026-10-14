@@ -26,7 +26,11 @@ use crate::resolver::Resolver;
 use crate::{config::MtaConfig, submit::QueueWriter};
 
 /// Spawn the manager loop. Runs until the process exits.
-pub fn spawn(pool: sqlx::PgPool, config: Arc<MtaConfig>, queue: Arc<QueueWriter>) -> tokio::task::JoinHandle<()> {
+pub fn spawn(
+    pool: sqlx::PgPool,
+    config: Arc<MtaConfig>,
+    queue: Arc<QueueWriter>,
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         run(pool, config, queue).await;
     })
@@ -48,7 +52,8 @@ async fn run(pool: sqlx::PgPool, config: Arc<MtaConfig>, queue: Arc<QueueWriter>
                     let sts = sts_cache.clone();
                     let dns = resolver.clone();
                     tokio::spawn(async move {
-                        if let Err(e) = process_event(&pool, &config, &queue, &sts, &dns, ev).await {
+                        if let Err(e) = process_event(&pool, &config, &queue, &sts, &dns, ev).await
+                        {
                             tracing::warn!(error = %e, "email8:mta: delivery task failed");
                         }
                     });
@@ -174,7 +179,18 @@ async fn deliver(
 
         if queue_name == "local" {
             // Resolve + file via Store's ingest API.
-            match deliver_local(pool, config, ev, &address, &blob_hash, size, source_flags, spam_pct).await {
+            match deliver_local(
+                pool,
+                config,
+                ev,
+                &address,
+                &blob_hash,
+                size,
+                source_flags,
+                spam_pct,
+            )
+            .await
+            {
                 Ok(()) => {
                     mark_terminal(pool, rcpt_id, "completed", Some("250 OK")).await?;
                 }
@@ -250,10 +266,15 @@ async fn deliver_local(
     let client = crate::storage_auth::internal_http_client(pool).await?;
 
     // 1. Resolve the address.
-    let resolve_url = format!("{}/v1/internal/resolve", config.store_url.trim_end_matches('/'));
+    let resolve_url = format!(
+        "{}/v1/internal/resolve",
+        config.store_url.trim_end_matches('/')
+    );
     let resolve_resp = client
         .post(&resolve_url)
-        .json(&serde_json::json!({ "env_id": ev.env_id, "address": address, "sub_addressing": true }))
+        .json(
+            &serde_json::json!({ "env_id": ev.env_id, "address": address, "sub_addressing": true }),
+        )
         .send()
         .await?;
     let resolve: serde_json::Value = resolve_resp.error_for_status()?.json().await?;
@@ -271,7 +292,10 @@ async fn deliver_local(
 
     // 2. Ingest — the spam score rides through so the Store's ingest
     // applies the junk re-file at ≥50 and ham overrides (design §2.3).
-    let ingest_url = format!("{}/v1/internal/ingest", config.store_url.trim_end_matches('/'));
+    let ingest_url = format!(
+        "{}/v1/internal/ingest",
+        config.store_url.trim_end_matches('/')
+    );
     let ingest: serde_json::Value = client
         .post(&ingest_url)
         .json(&serde_json::json!({
@@ -305,9 +329,16 @@ async fn deliver_remote(
     address: &str,
     raw: &[u8],
 ) -> Result<RcptOutcome, String> {
-    let domain = address.rsplit('@').next().unwrap_or_default().to_ascii_lowercase();
+    let domain = address
+        .rsplit('@')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     if domain.is_empty() {
-        return Ok(RcptOutcome::Permanent { address: address.to_string(), reply: "501 5.1.3 bad address".into() });
+        return Ok(RcptOutcome::Permanent {
+            address: address.to_string(),
+            reply: "501 5.1.3 bad address".into(),
+        });
     }
 
     // Route plan: MX + MTA-STS + TLSRPT.
@@ -346,7 +377,10 @@ async fn deliver_remote(
                 // Try the next MX on connection errors; protocol-level
                 // rejections classify immediately.
                 if e.starts_with("5") {
-                    return Ok(RcptOutcome::Permanent { address: address.to_string(), reply: e });
+                    return Ok(RcptOutcome::Permanent {
+                        address: address.to_string(),
+                        reply: e,
+                    });
                 }
                 tracing::debug!(host = %host.host, error = %e, "email8:mta: dialogue failed");
                 continue;
@@ -379,8 +413,14 @@ where
         }
         tracing::info!(domain = %_domain, "email8:mta: opportunistic downgrade");
     }
-    client.mail_from(return_path, Some(raw.len() as i64), false, false).await?;
-    let rcpt = OutboundRecipient { address: address.to_string(), notify: None, orcpt: None };
+    client
+        .mail_from(return_path, Some(raw.len() as i64), false, false)
+        .await?;
+    let rcpt = OutboundRecipient {
+        address: address.to_string(),
+        notify: None,
+        orcpt: None,
+    };
     let (code, reply) = client.rcpt(&rcpt).await?;
     if !(200..=300).contains(&code) {
         return Ok(outbound::classify(address.to_string(), code, reply));
@@ -453,13 +493,18 @@ async fn emit_dsn(
         .await
         .map_err(|e| anyhow::anyhow!("dsn enqueue: {e}"))?;
     tracing::info!(dsn_queue_id = %queue_id, %address, "email8:mta: DSN enqueued");
-    emit_event(pool, ev.env_id, "email8:smtp:dsn:generated", serde_json::json!({
-        "env_id": ev.env_id,
-        "queue_id": ev.message_id,
-        "dsn_queue_id": queue_id,
-        "recipient": address,
-        "reply": reply,
-    }))
+    emit_event(
+        pool,
+        ev.env_id,
+        "email8:smtp:dsn:generated",
+        serde_json::json!({
+            "env_id": ev.env_id,
+            "queue_id": ev.message_id,
+            "dsn_queue_id": queue_id,
+            "recipient": address,
+            "reply": reply,
+        }),
+    )
     .await;
     Ok(())
 }
@@ -500,12 +545,11 @@ async fn mark_terminal(
         let env_id: uuid::Uuid = row.get("env_id");
         let message_id: uuid::Uuid = row.get("message_id");
         let address: String = row.get("address");
-        let msg: Option<sqlx::postgres::PgRow> = sqlx::query(
-            "SELECT return_path, size FROM email8.queue_messages WHERE id = $1",
-        )
-        .bind(message_id)
-        .fetch_optional(pool)
-        .await?;
+        let msg: Option<sqlx::postgres::PgRow> =
+            sqlx::query("SELECT return_path, size FROM email8.queue_messages WHERE id = $1")
+                .bind(message_id)
+                .fetch_optional(pool)
+                .await?;
         if let Some(msg) = msg {
             let return_path: String = msg.get("return_path");
             let size: i64 = msg.get("size");
@@ -601,7 +645,11 @@ async fn schedule_retry(
 
 /// Expire a message: recipients still scheduled become permanent failures
 /// and each gets a DSN (double-bounce safe).
-async fn expire(pool: &sqlx::PgPool, queue: &Arc<QueueWriter>, ev: &DueEvent) -> anyhow::Result<()> {
+async fn expire(
+    pool: &sqlx::PgPool,
+    queue: &Arc<QueueWriter>,
+    ev: &DueEvent,
+) -> anyhow::Result<()> {
     let rows = sqlx::query(
         "UPDATE email8.queue_recipients \
             SET status = 'permanent_failure', last_reply = 'expired', updated_at = now() \
@@ -613,19 +661,23 @@ async fn expire(pool: &sqlx::PgPool, queue: &Arc<QueueWriter>, ev: &DueEvent) ->
     .await?;
     if !rows.is_empty() {
         tracing::warn!(queue = %ev.message_id, count = rows.len(), "email8:mta: message expired");
-        emit_event(pool, ev.env_id, "email8:smtp:message:expired", serde_json::json!({
-            "env_id": ev.env_id,
-            "queue_id": ev.message_id,
-            "last_error": "ttl expired",
-        }))
+        emit_event(
+            pool,
+            ev.env_id,
+            "email8:smtp:message:expired",
+            serde_json::json!({
+                "env_id": ev.env_id,
+                "queue_id": ev.message_id,
+                "last_error": "ttl expired",
+            }),
+        )
         .await;
         // DSN per recipient (delay-notification shape).
-        let msg = sqlx::query(
-            "SELECT return_path, blob_hash FROM email8.queue_messages WHERE id = $1",
-        )
-        .bind(ev.message_id)
-        .fetch_optional(pool)
-        .await?;
+        let msg =
+            sqlx::query("SELECT return_path, blob_hash FROM email8.queue_messages WHERE id = $1")
+                .bind(ev.message_id)
+                .fetch_optional(pool)
+                .await?;
         if let Some(msg) = msg {
             let return_path: String = msg.get("return_path");
             if !return_path.is_empty() {
@@ -633,9 +685,7 @@ async fn expire(pool: &sqlx::PgPool, queue: &Arc<QueueWriter>, ev: &DueEvent) ->
                 let original = fetch_blob_from_pool(pool, &blob_hash).await;
                 let addresses: Vec<String> = rows.iter().map(|r| r.get("address")).collect();
                 for address in addresses {
-                    let headers = original
-                        .as_deref()
-                        .unwrap_or_default();
+                    let headers = original.as_deref().unwrap_or_default();
                     let dsn = email8::mail_queue::build_dsn(
                         email8::mail_queue::DsnType::Delay,
                         &return_path,
@@ -650,7 +700,10 @@ async fn expire(pool: &sqlx::PgPool, queue: &Arc<QueueWriter>, ev: &DueEvent) ->
                             diagnostic: Some("delivery time expired".into()),
                         }],
                     );
-                    if let Ok(queue_id) = queue.enqueue(&ev.env_id, "", &[return_path.clone()], &dsn, true).await {
+                    if let Ok(queue_id) = queue
+                        .enqueue(&ev.env_id, "", std::slice::from_ref(&return_path), &dsn, true)
+                        .await
+                    {
                         tracing::info!(dsn_queue_id = %queue_id, "email8:mta: expiry DSN enqueued");
                     }
                 }

@@ -82,10 +82,19 @@ pub struct MxHost {
 
 /// Resolve the MX hosts for a domain. Null-MX (`0 .`) → hard fail.
 /// No MX → implicit MX (the domain itself, RFC 5321 §5.1).
-pub async fn resolve_mx(dns: &dyn email8::mail_auth::DnsTxt, domain: &str) -> Result<Vec<MxHost>, String> {
-    let rows = dns.lookup_txt(&format!("_mx.{domain}")).await.unwrap_or_default();
+pub async fn resolve_mx(
+    dns: &dyn email8::mail_auth::DnsTxt,
+    domain: &str,
+) -> Result<Vec<MxHost>, String> {
+    let rows = dns
+        .lookup_txt(&format!("_mx.{domain}"))
+        .await
+        .unwrap_or_default();
     if rows.is_empty() {
-        return Ok(vec![MxHost { priority: 10, host: domain.to_string() }]);
+        return Ok(vec![MxHost {
+            priority: 10,
+            host: domain.to_string(),
+        }]);
     }
     let mut hosts = Vec::new();
     for row in rows {
@@ -98,11 +107,16 @@ pub async fn resolve_mx(dns: &dyn email8::mail_auth::DnsTxt, domain: &str) -> Re
         let (Some(prio), Some(host)) = (parts.next(), parts.next()) else {
             continue;
         };
-        let Ok(priority) = prio.parse::<u16>() else { continue };
+        let Ok(priority) = prio.parse::<u16>() else {
+            continue;
+        };
         if host == "." {
             continue;
         }
-        hosts.push(MxHost { priority, host: host.to_ascii_lowercase() });
+        hosts.push(MxHost {
+            priority,
+            host: host.to_ascii_lowercase(),
+        });
     }
     hosts.sort_by_key(|h| h.priority);
     if hosts.is_empty() {
@@ -122,7 +136,11 @@ pub struct SmtpClient<S> {
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
     pub fn new(stream: S) -> Self {
-        Self { stream, buffer: Vec::with_capacity(1024), lmtp: false }
+        Self {
+            stream,
+            buffer: Vec::with_capacity(1024),
+            lmtp: false,
+        }
     }
 
     /// Mark the session as LMTP (LHLO instead of EHLO).
@@ -169,10 +187,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
     }
 
     /// Greeting + EHLO/LHLO with capability capture.
-    pub async fn handshake(
-        &mut self,
-        hostname: &str,
-    ) -> Result<(u16, Vec<String>), String> {
+    pub async fn handshake(&mut self, hostname: &str) -> Result<(u16, Vec<String>), String> {
         let (code, reply) = self.read_reply().await?;
         if code != 220 {
             return Err(format!("unexpected greeting: {reply}"));
@@ -229,8 +244,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
             params.push_str(" REQUIRETLS");
         }
         let _ = utf8; // SMTPUTF8 applies to addresses; appended below.
-        let addr = if utf8 { sender.to_string() } else { sender.to_string() };
-        self.write_line(&format!("MAIL FROM:<{addr}>{params}")).await?;
+        let addr = if utf8 {
+            sender.to_string()
+        } else {
+            sender.to_string()
+        };
+        self.write_line(&format!("MAIL FROM:<{addr}>{params}"))
+            .await?;
         let (code, reply) = self.read_reply().await?;
         if code != 250 {
             return Err(reply);
@@ -247,7 +267,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         if let Some(orcpt) = &rcpt.orcpt {
             params.push_str(&format!(" ORCPT={orcpt}"));
         }
-        self.write_line(&format!("RCPT TO:<{}>{params}", rcpt.address)).await?;
+        self.write_line(&format!("RCPT TO:<{}>{params}", rcpt.address))
+            .await?;
         self.read_reply().await
     }
 
@@ -258,7 +279,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         raw: &[u8],
         accepted: &[OutboundRecipient],
     ) -> Result<Vec<RcptOutcome>, String> {
-        self.write_line(if self.lmtp { "LHLO-DATA" } else { "DATA" }).await?;
+        self.write_line(if self.lmtp { "LHLO-DATA" } else { "DATA" })
+            .await?;
         let (code, reply) = self.read_reply().await?;
         if code != 354 {
             return Err(format!("DATA refused: {reply}"));
@@ -274,7 +296,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
             body.extend_from_slice(b"\r\n");
         }
         body.extend_from_slice(b".\r\n");
-        self.stream.write_all(&body).await.map_err(|e| format!("write body: {e}"))?;
+        self.stream
+            .write_all(&body)
+            .await
+            .map_err(|e| format!("write body: {e}"))?;
         if self.lmtp {
             // Per-recipient replies in RCPT order.
             let mut out = Vec::with_capacity(accepted.len());
@@ -300,7 +325,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
     ) -> Result<Vec<RcptOutcome>, String> {
         let last = raw.len();
         self.write_line(&format!("BDAT {last} LAST")).await?;
-        self.stream.write_all(raw).await.map_err(|e| format!("write chunk: {e}"))?;
+        self.stream
+            .write_all(raw)
+            .await
+            .map_err(|e| format!("write chunk: {e}"))?;
         if self.lmtp {
             let mut out = Vec::with_capacity(accepted.len());
             for rcpt in accepted {
@@ -397,7 +425,10 @@ mod tests {
         assert!(sts_authorizes(Some(&sts), "mx1.example.com"));
         assert!(!sts_authorizes(Some(&sts), "evil.example.net"));
         assert!(sts_authorizes(None, "anything.example"));
-        let none_mode = MtaStsPolicy { mode: "none".into(), ..sts };
+        let none_mode = MtaStsPolicy {
+            mode: "none".into(),
+            ..sts
+        };
         assert!(sts_authorizes(Some(&none_mode), "whatever"));
     }
 }

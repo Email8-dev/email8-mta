@@ -55,10 +55,7 @@ impl DnsblZoneCache {
                 }
             }
         }
-        let rows: Vec<(String, String, i32)> = match self.pool
-            .acquire()
-            .await
-        {
+        let rows: Vec<(String, String, i32)> = match self.pool.acquire().await {
             Ok(mut conn) => {
                 let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
                     .bind(env_id)
@@ -95,13 +92,9 @@ impl DnsblZoneCache {
             .iter()
             .filter_map(|r| {
                 // Reuse the spam-crate parser (`zone|scopes|cap` rows).
-                email8::spam::dnsbl::zones_from_config(&[(
-                    r.zone.clone(),
-                    r.scopes.clone(),
-                    r.cap,
-                )])
-                .into_iter()
-                .next()
+                email8::spam::dnsbl::zones_from_config(&[(r.zone.clone(), r.scopes.clone(), r.cap)])
+                    .into_iter()
+                    .next()
             })
             .collect();
         let mut entries = self.entries.write().await;

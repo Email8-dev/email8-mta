@@ -80,7 +80,9 @@ pub async fn run_milter(
     headers: &[(String, String)],
     body: &[u8],
 ) -> Result<MilterAction, String> {
-    let mut sock = tokio::net::TcpStream::connect(&hook.target).await.map_err(|e| e.to_string())?;
+    let mut sock = tokio::net::TcpStream::connect(&hook.target)
+        .await
+        .map_err(|e| e.to_string())?;
     use tokio::io::AsyncWriteExt;
 
     // OPTNEG: version 6, actions (ADDHDRS|DISCARD), protocol steps 0.
@@ -90,7 +92,9 @@ pub async fn run_milter(
         buf.extend_from_slice(&6u32.to_be_bytes());
         buf.extend_from_slice(&0x00000004u32.to_be_bytes()); // ADDHDRS|DISCARD
         buf.extend_from_slice(&0x00000001u32.to_be_bytes()); // CONNECT only
-        sock.write_all(&(buf.len() as u32).to_be_bytes()).await.map_err(|e| e.to_string())?;
+        sock.write_all(&(buf.len() as u32).to_be_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
         sock.write_all(&buf).await.map_err(|e| e.to_string())?;
         let reply = read_packet(&mut sock).await?;
         if reply.is_empty() || reply[0] != smfir::CONTINUE {
@@ -215,7 +219,9 @@ async fn exchange(
     mut cmd: Vec<u8>,
 ) -> Result<MilterAction, String> {
     use tokio::io::AsyncWriteExt;
-    sock.write_all(&(cmd.len() as u32).to_be_bytes()).await.map_err(|e| e.to_string())?;
+    sock.write_all(&(cmd.len() as u32).to_be_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
     sock.write_all(&cmd).await.map_err(|e| e.to_string())?;
     cmd.clear();
     let reply = read_packet(sock).await?;
@@ -227,7 +233,11 @@ fn parse_response(reply: &[u8]) -> Result<MilterAction, String> {
         return Ok(MilterAction::Continue);
     };
     let rest = &reply[1..];
-    let cstr = |b: &[u8]| String::from_utf8_lossy(b).trim_end_matches('\0').to_string();
+    let cstr = |b: &[u8]| {
+        String::from_utf8_lossy(b)
+            .trim_end_matches('\0')
+            .to_string()
+    };
     Ok(match code {
         smfir::CONTINUE => MilterAction::Continue,
         smfir::REJECT => MilterAction::Reject(cstr(rest)),
@@ -286,8 +296,10 @@ pub async fn run_http_hooks(
             .send()
             .await
             .map_err(|e| format!("hook {}: {e}", hook.name))?;
-        let verdict: serde_json::Value =
-            resp.json().await.map_err(|e| format!("hook {}: {e}", hook.name))?;
+        let verdict: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("hook {}: {e}", hook.name))?;
         let action = verdict
             .get("action")
             .and_then(|v| v.as_str())
@@ -302,8 +314,18 @@ pub async fn run_http_hooks(
             "tempfail" => MilterAction::TempFail(reason),
             "discard" => MilterAction::Discard,
             "add_header" => MilterAction::AddHeader {
-                name: verdict.get("header").and_then(|h| h.get("name")).and_then(|v| v.as_str()).unwrap_or("X-Hook").into(),
-                value: verdict.get("header").and_then(|h| h.get("value")).and_then(|v| v.as_str()).unwrap_or_default().into(),
+                name: verdict
+                    .get("header")
+                    .and_then(|h| h.get("name"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("X-Hook")
+                    .into(),
+                value: verdict
+                    .get("header")
+                    .and_then(|h| h.get("value"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .into(),
             },
             _ => MilterAction::Continue,
         };
@@ -363,7 +385,11 @@ pub async fn load_hooks(
                 stage_filter: config
                     .get("stages")
                     .and_then(|v| v.as_array())
-                    .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|s| s.as_str().map(String::from))
+                            .collect()
+                    })
                     .unwrap_or_default(),
                 target,
             });
@@ -391,22 +417,43 @@ mod tests {
     #[test]
     fn response_parsing() {
         assert_eq!(parse_response(b"c").unwrap(), MilterAction::Continue);
-        assert_eq!(parse_response(b"rnope\0").unwrap(), MilterAction::Reject("nope".into()));
-        assert_eq!(parse_response(b"tbusy\0").unwrap(), MilterAction::TempFail("busy".into()));
+        assert_eq!(
+            parse_response(b"rnope\0").unwrap(),
+            MilterAction::Reject("nope".into())
+        );
+        assert_eq!(
+            parse_response(b"tbusy\0").unwrap(),
+            MilterAction::TempFail("busy".into())
+        );
         assert_eq!(parse_response(b"d").unwrap(), MilterAction::Discard);
         assert_eq!(
             parse_response(b"hX-Custom\0yes\0").unwrap(),
-            MilterAction::AddHeader { name: "X-Custom".into(), value: "yes".into() }
+            MilterAction::AddHeader {
+                name: "X-Custom".into(),
+                value: "yes".into()
+            }
         );
     }
 
     #[test]
     fn combine_precedence() {
         let c = MilterAction::Continue;
-        assert!(matches!(combine(c.clone(), MilterAction::Reject("x".into())), MilterAction::Reject(_)));
-        assert!(matches!(combine(MilterAction::Discard, c.clone()), MilterAction::Discard));
         assert!(matches!(
-            combine(MilterAction::TempFail("t".into()), MilterAction::AddHeader { name: "a".into(), value: "b".into() }),
+            combine(c.clone(), MilterAction::Reject("x".into())),
+            MilterAction::Reject(_)
+        ));
+        assert!(matches!(
+            combine(MilterAction::Discard, c.clone()),
+            MilterAction::Discard
+        ));
+        assert!(matches!(
+            combine(
+                MilterAction::TempFail("t".into()),
+                MilterAction::AddHeader {
+                    name: "a".into(),
+                    value: "b".into()
+                }
+            ),
             MilterAction::TempFail(_)
         ));
     }
