@@ -1,0 +1,38 @@
+# Sentin8 Email8:Mta — SMTP/LMTP Transfer Engine
+
+## 1. Summary
+
+Email8:Mta is the mail transfer engine: SMTP/LMTP protocol handling,
+the durable delivery queue (message + recipient state machine with
+scheduled retries), DKIM signing, DMARC/TLS-RPT report generation,
+and outbound relay.
+
+## 2. Architecture
+
+```mermaid
+graph TD
+    GATE[Email8:Gate] --> MTA[Mta<br/>SMTP/LMTP listeners]
+    MTA --> Q[(email8.queue_messages<br/>queue_recipients)]
+    MTA -- message blobs --> STORE[Sentin8:Storage]
+    MTA -- DKIM --> KEYS[Key store]
+    MTA -- hourly metric frames --> MB[MemBus stat:telemetry]
+    MTA -- relay --> UPSTREAM[Upstream MX]
+```
+
+## 3. Key Traits
+
+- Queue state machine: recipient status transitions with retry
+  backoff; the queue IS the retry contract.
+- Telemetry (SDD §2.6): queue depth, latency, spam-rate frames
+  publish on the shared MemBus `stat:telemetry` path —
+  fire-and-forget, no stat client.
+- M2M: certificate identity (CERTFREE-4V) — the MTA's own workload cert
+  presents in the TLS handshake for Storage and Store internal calls; no
+  secrets in tables.
+
+See the vertical group docs (`email8/README.md`) for the plane
+overview.
+
+---
+
+**Design attribution:** email8:mta and its underlying concepts were designed by Hamid Jahanzad <Hamid@Jahanzad.com>.

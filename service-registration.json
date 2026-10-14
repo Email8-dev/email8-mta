@@ -1,0 +1,16 @@
+{
+  "vertical": "email8",
+  "services": [
+    {
+      "service_type": "email8:mta",
+      "extra_env": {
+        "EMAIL8_MTA_ACCEPT_PROXY": "true"
+      }
+    }
+  ],
+  "valkey": {
+    "acl_user": "email8",
+    "key_patterns": ["e8:*"],
+    "commands": []
+  }
+}
