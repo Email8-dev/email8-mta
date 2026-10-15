@@ -17,6 +17,8 @@ graph TD
     MTA -- DKIM --> KEYS[Key store]
     MTA -- hourly metric frames --> MB[MemBus stat:telemetry]
     MTA -- relay --> UPSTREAM[Upstream MX]
+    MTA -- domain events --> OB[(mta.outbox)] -- 8b relay --> BUS[Sentin8:Bus
+    POST /v1/produce]
 ```
 
 ## 3. Key Traits
@@ -26,6 +28,10 @@ graph TD
 - Telemetry (SDD §2.6): queue depth, latency, spam-rate frames
   publish on the shared MemBus `stat:telemetry` path —
   fire-and-forget, no stat client.
+- Event emission (OUTBOX-EMAIL8, architecture-principles §6.7): domain
+  events (`email8:mta:*`) insert into the LOCAL `mta.outbox` in the same
+  transaction as the domain change; the shell's 8b relay drains them to
+  Bus `POST /v1/produce` (idempotency_key = row id; consumers dedupe).
 - M2M: certificate identity (CERTFREE-4V) — the MTA's own workload cert
   presents in the TLS handshake for Storage and Store internal calls; no
   secrets in tables.

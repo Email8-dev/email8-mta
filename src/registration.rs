@@ -110,6 +110,10 @@ const M2M_GRANTS: &[M2mGrant] = &[
     M2mGrant {
         workload: "email8:mta",
         scopes: &[
+            // The outbox relay's produce scope (OUTBOX-EMAIL8 — DBX
+            // producer path): the shell's 8b relay presents this
+            // workload's cert to Bus `POST /v1/produce`.
+            "sentin8:bus:produce",
             "email8:mail:read",
             "email8:mail:write",
             "email8:mail:receive",
@@ -252,6 +256,12 @@ const ADMIN_UI_PAGES: &[AdminUiPage] = &[
 
 const SQL_1_INIT: &str = include_str!("../sql/init.sql");
 
+/// OUTBOX-EMAIL8 migration v3: the per-service leaf-schema outbox
+/// (the DBX producer path — sql/outbox.sql). v1 already applied on live
+/// DBs; the version bump provisions the outbox without recreation
+/// (greenfield versioning, no migration code).
+const SQL_2_OUTBOX: &str = include_str!("../sql/outbox.sql");
+
 fn openapi_spec() -> serde_json::Value {
     // Portable stub when #[path]-included from tests (POLICY-7): the real
     // derive lives in the crate's openapi module, which tests don't link.
@@ -280,11 +290,18 @@ pub fn print(section: Option<String>) -> anyhow::Result<()> {
             service_flag: "email8",
             pages: ADMIN_UI_PAGES,
         }),
-        sql_migrations: vec![SqlMigration {
-            version: 1,
-            name: "init",
-            sql: SQL_1_INIT,
-        }],
+        sql_migrations: vec![
+            SqlMigration {
+                version: 1,
+                name: "init",
+                sql: SQL_1_INIT,
+            },
+            SqlMigration {
+                version: 3,
+                name: "outbox",
+                sql: SQL_2_OUTBOX,
+            },
+        ],
         audit_findings: None,
         service_actions: None,
         m2m_grants: Some(M2M_GRANTS),

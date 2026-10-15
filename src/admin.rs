@@ -30,8 +30,7 @@ pub async fn get_admin_ui(
     headers: HeaderMap,
     Path(page): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let a = sentin8::shell::verify_token(&state.core.config, &headers)
-        .await?;
+    let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
     // Step-5 policy decision (Phase 28 §4.3): the queue action governs
     // the RFW page read — the scope-mirror carries the sibling admin
     // scopes + platform-admin permits for it.
@@ -87,8 +86,7 @@ pub async fn admin_data(
     let env_id = q
         .target_env_id
         .ok_or((StatusCode::BAD_REQUEST, "missing target_env_id".into()))?;
-    let a = sentin8::shell::verify_token(&state.core.config, &headers)
-        .await?;
+    let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
     // Step-5 policy decision (Phase 28 §4.3) — queue governs.
     sentin8::shell::policy::require(
         &state.core.admin.policy,

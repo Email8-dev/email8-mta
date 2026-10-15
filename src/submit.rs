@@ -310,8 +310,7 @@ pub async fn submit(
 ) -> Result<Json<SubmitResponse>, (axum::http::StatusCode, String)> {
     // Re-verify the caller's scope at Mta (the Store proxy attaches the
     // user token; Mta never trusts the Store's check alone).
-    let a = sentin8::shell::verify_token(&state.core.config, &headers)
-        .await?;
+    let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
     // Step-5 policy decision (Phase 28 §4.3): Mta never trusts the
     // Store's check alone — submission authority is Shield's call.
     sentin8::shell::policy::require(
@@ -357,24 +356,12 @@ async fn emit_event(
     event_type: &str,
     payload: serde_json::Value,
 ) {
-    let mut conn = match pool.acquire().await {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!(error = %e, %event_type, "email8:mta: outbox connection failed");
-            return;
-        }
-    };
-    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
-        .bind(env_id)
-        .execute(&mut *conn)
-        .await;
-    let _ = sqlx::query(
-        "INSERT INTO sentin8.bus_inbox (env_id, event_type, stream_family, payload) VALUES ($1, $2, $3, $4)",
-    )
-    .bind(env_id)
-    .bind(event_type)
-    .bind("email8")
-    .bind(&payload)
-    .execute(&mut *conn)
-    .await;
+    // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
+    // shell's 8b relay drains post-commit; bus dedupes on row id.
+    if let Err(e) =
+        sentin8::bus::outbox::insert_outbox_row_pool(pool, env_id, "email8", event_type, &payload)
+            .await
+    {
+        tracing::warn!(error = %e, %event_type, "email8:mta: outbox insert failed");
+    }
 }

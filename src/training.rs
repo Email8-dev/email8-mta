@@ -154,14 +154,15 @@ async fn train_account(
         .await
         .map_err(|e| format!("model artifact store: {e}"))?;
 
-    let _ = sqlx::query(
-        "INSERT INTO sentin8.bus_inbox (env_id, event_type, stream_family, payload) \
-         VALUES ($1, $2, 'email8', $3)",
+    // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
+    // shell's 8b relay drains post-commit; bus dedupes on row id.
+    sentin8::bus::outbox::insert_outbox_row_pool(
+        pool,
+        env_id,
+        "email8",
+        "email8:spam:model:updated",
+        &serde_json::json!({ "account_id": account_id, "artifact": hash }),
     )
-    .bind(env_id)
-    .bind("email8:spam:model:updated")
-    .bind(serde_json::json!({ "account_id": account_id, "artifact": hash }))
-    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
     tracing::info!(account_id = %account_id, samples = samples.len(), "email8:mta: spam model updated");

@@ -701,7 +701,13 @@ async fn expire(
                         }],
                     );
                     if let Ok(queue_id) = queue
-                        .enqueue(&ev.env_id, "", std::slice::from_ref(&return_path), &dsn, true)
+                        .enqueue(
+                            &ev.env_id,
+                            "",
+                            std::slice::from_ref(&return_path),
+                            &dsn,
+                            true,
+                        )
                         .await
                     {
                         tracing::info!(dsn_queue_id = %queue_id, "email8:mta: expiry DSN enqueued");
@@ -728,24 +734,12 @@ async fn emit_event(
     event_type: &str,
     payload: serde_json::Value,
 ) {
-    let mut conn = match pool.acquire().await {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!(error = %e, %event_type, "email8:mta: outbox connection failed");
-            return;
-        }
-    };
-    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
-        .bind(env_id)
-        .execute(&mut *conn)
-        .await;
-    let _ = sqlx::query(
-        "INSERT INTO sentin8.bus_inbox (env_id, event_type, stream_family, payload) VALUES ($1, $2, $3, $4)",
-    )
-    .bind(env_id)
-    .bind(event_type)
-    .bind("email8")
-    .bind(&payload)
-    .execute(&mut *conn)
-    .await;
+    // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
+    // shell's 8b relay drains post-commit; bus dedupes on row id.
+    if let Err(e) =
+        sentin8::bus::outbox::insert_outbox_row_pool(pool, env_id, "email8", event_type, &payload)
+            .await
+    {
+        tracing::warn!(error = %e, %event_type, "email8:mta: outbox insert failed");
+    }
 }

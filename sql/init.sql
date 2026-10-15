@@ -214,3 +214,62 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'mta grants skip: %', SQLERRM;
 END $$;
+-- ── Local outbox (OUTBOX-EMAIL8, architecture-principles §6.7) ──────────
+-- NOTE: this block ALSO ships as migration v2 in registration.rs — the
+-- live DB already has v1 applied; the version bump provisions the
+-- outbox without recreation (greenfield versioning, no migration code).
+CREATE TABLE IF NOT EXISTS email8.outbox (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    env_id          UUID NOT NULL,
+    event_type      TEXT NOT NULL,
+    stream_family   TEXT NOT NULL,
+    payload         JSONB NOT NULL,
+    publisher_id_token  TEXT,
+    publisher_subject   TEXT,
+    relayed         BOOLEAN NOT NULL DEFAULT false,
+    relayed_at      TIMESTAMPTZ,
+    relay_attempts  INT NOT NULL DEFAULT 0,
+    next_retry_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_email8_outbox_unrelayed
+    ON email8.outbox (created_at) WHERE relayed = false;
+ALTER TABLE email8.outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email8.outbox FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS outbox_select ON email8.outbox;
+CREATE POLICY outbox_select ON email8.outbox FOR SELECT
+    USING (sentin8_context_initialized() AND env_id = sentin8_current_env_id());
+DROP POLICY IF EXISTS outbox_insert ON email8.outbox;
+CREATE POLICY outbox_insert ON email8.outbox FOR INSERT
+    WITH CHECK (sentin8_context_initialized() AND env_id = sentin8_current_env_id());
+DROP POLICY IF EXISTS outbox_update ON email8.outbox;
+CREATE POLICY outbox_update ON email8.outbox FOR UPDATE
+    USING (sentin8_context_initialized() AND env_id = sentin8_current_env_id());
+CREATE OR REPLACE FUNCTION email8.notify_outbox_changed() RETURNS TRIGGER
+LANGUAGE plpgsql AS $fn$
+BEGIN
+    -- Both shell relays (email8:mta → 'mta_outbox_changed',
+    -- email8:store → 'store_outbox_changed') wake on every row.
+    PERFORM pg_notify('mta_outbox_changed', '');
+    PERFORM pg_notify('store_outbox_changed', '');
+    RETURN NEW;
+END;
+$fn$;
+DROP TRIGGER IF EXISTS outbox_notify_trigger ON email8.outbox;
+CREATE TRIGGER outbox_notify_trigger
+    AFTER INSERT ON email8.outbox
+    FOR EACH ROW
+    EXECUTE FUNCTION email8.notify_outbox_changed();
+
+-- The relay's drain calls sentin8_outbox_unrelayed_envs() (outbox crate) —
+-- a SECURITY DEFINER helper that must exist in the DB; email8's init
+-- creates it over the shared table (IF NOT EXISTS from any service's
+-- init keeps the pair idempotent).
+CREATE OR REPLACE FUNCTION sentin8_outbox_unrelayed_envs()
+RETURNS TABLE (env_id UUID)
+LANGUAGE sql SECURITY DEFINER SET search_path = email8, public
+AS $$
+    SELECT DISTINCT env_id FROM email8.outbox
+    WHERE relayed = false AND relay_attempts < 10
+      AND (next_retry_at IS NULL OR next_retry_at <= now());
+$$;
