@@ -27,6 +27,10 @@ path = "src/lib.rs"
 sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.3" }
 # email8 namespace facade pin - carries this vertical's contracts/clients.
 email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.3" }
+# Heap-diagnostics probe (MTALEAK-1): SIGUSR1 handler registration for the
+# env-gated mimalloc stats dump. Direct dep because main.rs links the
+# registration + raw write itself.
+libc = "0.2"
 
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
@@ -52,7 +56,7 @@ valkey-glide = "0.9.0"
 dotenvy = "0.15"
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-mimalloc = { version = "0.1", default-features = false }
+mimalloc = { version = "0.1", default-features = false, features = ["extended"] }
 thiserror = "1"
 anyhow = "1"
 futures-util = "0.3"

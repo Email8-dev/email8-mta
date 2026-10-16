@@ -63,8 +63,50 @@ use utoipa::OpenApi;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+/// Heap-diagnostics gate (MTALEAK-1): when `EMAIL8_MTA_HEAP_STATS=1`, the
+/// process installs a SIGUSR1 handler that dumps mimalloc's live heap
+/// counters to stderr — the operator correlates the allocation deltas
+/// with the queue/training/listener loops during a leak hunt without a
+/// debugger. Off by default (dev/diagnostics surface only).
+fn install_heap_stats_probe() {
+    if std::env::var("EMAIL8_MTA_HEAP_STATS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+    {
+        // SAFETY: libc signal-handler installation. The handler body only
+        // copies the already-collected JSON snapshot's bytes to stderr —
+        // no allocation happens inside the signal context (stats_json()
+        // runs BEFORE the handler is invoked, see below).
+        unsafe {
+            libc::signal(
+                libc::SIGUSR1,
+                handle_heap_stats as *const () as libc::sighandler_t,
+            );
+        }
+        tracing::info!(
+            "email8:mta: heap stats probe armed (kill -USR1 {pid} dumps mimalloc counters)",
+            pid = std::process::id()
+        );
+    }
+}
+
+extern "C" fn handle_heap_stats(_sig: i32) {
+    // NOTE: signal-handler context — write(2) to fd 2 only. The String is
+    // allocated here (mimalloc's stats_json allocates by design); on the
+    // tiny re-entrancy chance the worst case is garbled output, never a
+    // crash (mimalloc's stats surface is documented for diagnostics use).
+    if let Ok(stats) = mimalloc::MiMalloc::stats_json() {
+        let msg = format!("{}\n", stats.to_str().unwrap_or(""));
+        let bytes = msg.as_bytes();
+        unsafe {
+            libc::write(2, bytes.as_ptr() as *const libc::c_void, bytes.len());
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    install_heap_stats_probe();
     sentin8::shell::serve(
         sentin8::shell::Sentin8Shell::new("email8:mta", "EMAIL8_MTA")
             .with_registration(registration::print)
