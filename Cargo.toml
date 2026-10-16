@@ -21,12 +21,21 @@ name = "email8_mta_server"
 path = "src/lib.rs"
 
 
+[features]
+# Profiling build (MTALEAK-1): swap the mimalloc global allocator for the
+# system allocator so malloc-level profilers (heaptrack) see every
+# allocation — mimalloc's internal arenas are invisible to LD_PRELOAD
+# malloc hooks. Diagnostics-only; never enable in fleet builds (the
+# allocator swap changes allocation behavior being measured only for the
+# per-allocation overhead, not the allocation sites).
+profile-heaptrack = []
+
 [dependencies]
 # Platform SDK pin (RS 2.3) - the only cross-repo dependency; carries the
 # entire shared library workspace behind the `sentin8` facade.
-sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.3" }
+sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.4" }
 # email8 namespace facade pin - carries this vertical's contracts/clients.
-email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.3" }
+email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.4" }
 # Heap-diagnostics probe (MTALEAK-1): SIGUSR1 handler registration for the
 # env-gated mimalloc stats dump. Direct dep because main.rs links the
 # registration + raw write itself.
@@ -65,6 +74,6 @@ blake3 = "1"
 base64 = "0.22"
 async-trait = "0.1"
 memchr = "2"
-sentin8-stat-sdk = { git = "https://github.com/Sentin8/sentin8-stat", tag = "stat-sdk-v0.6.2" }
+sentin8-stat-sdk = { git = "https://github.com/Sentin8/sentin8-stat", tag = "stat-sdk-v0.6.3" }
 sentin8-storage-sdk = { git = "https://github.com/Sentin8/sentin8-storage", tag = "storage-sdk-v0.3.0" }
 sentin8-secrets-sdk = { git = "https://github.com/Sentin8/sentin8-secrets", tag = "secrets-sdk-v0.3.0" }

@@ -57,9 +57,19 @@ mod valkey_limits;
 
 use utoipa::OpenApi;
 
-/// mimalloc global allocator (design §6 D13) — every background worker in
-/// this binary (queue dispatch, delivery, FTRL training, report windows,
-/// DKIM rotation sweep) allocates through it.
+// mimalloc global allocator (design §6 D13) — every background worker in
+// this binary (queue dispatch, delivery, FTRL training, report windows,
+// DKIM rotation sweep) allocates through it. The `profile-heaptrack`
+// feature swaps it for the system allocator: mimalloc serves allocations
+// from internal arenas via direct mmap, which malloc-level profilers
+// (heaptrack/LD_PRELOAD hooks) cannot see — profiling builds must use the
+// libc allocator so every allocation passes the interceptor hooks
+// (MTALEAK-1 §diagnostics).
+#[cfg(all(feature = "profile-heaptrack", not(test)))]
+#[global_allocator]
+static GLOBAL: std::alloc::System = std::alloc::System;
+
+#[cfg(not(feature = "profile-heaptrack"))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
