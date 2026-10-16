@@ -1,0 +1,195 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "email8-mta",
+    "description": "Sentin8 Email8:Mta — SMTP/LMTP transfer engine, queue, DKIM, reports.",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/admin/{page}": {
+      "post": {
+        "tags": [
+          "email8-mta"
+        ],
+        "summary": "`POST /v1/admin/{page}` — data endpoints.",
+        "operationId": "admin_data",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "path",
+            "description": "Admin page id: queue|dkim|reports",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_env_id",
+            "in": "query",
+            "description": "REQUIRED target env",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page data",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Missing target_env_id"
+          },
+          "403": {
+            "description": "Missing email8 admin scope"
+          },
+          "404": {
+            "description": "Unknown page"
+          }
+        }
+      }
+    },
+    "/v1/internal/submit": {
+      "post": {
+        "tags": [
+          "email8-mta"
+        ],
+        "summary": "`POST /v1/internal/submit` — the JMAP/Store submit path.",
+        "operationId": "submit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token verification failed"
+          },
+          "403": {
+            "description": "Missing email8:submission:send scope or env mismatch"
+          },
+          "404": {
+            "description": "Blob not found in Storage"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SubmitRequest": {
+        "type": "object",
+        "required": [
+          "env_id",
+          "account_id",
+          "user_sub",
+          "return_path",
+          "recipients",
+          "blob_hash",
+          "size",
+          "source"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blob_hash": {
+            "type": "string"
+          },
+          "env_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hold_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Delayed send (`sendAt`)."
+          },
+          "idempotency_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "return_path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source": {
+            "type": "string"
+          },
+          "user_sub": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Sentin8:Auth user `sub` — re-verified by Mta from claims."
+          }
+        }
+      },
+      "SubmitResponse": {
+        "type": "object",
+        "required": [
+          "queue_id"
+        ],
+        "properties": {
+          "next_event_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Earliest due event (retry/notify/expiry) — informational."
+          },
+          "queue_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    {
+      "name": "email8-mta",
+      "description": "Sentin8 Email8:Mta — SMTP transfer engine, queue, DKIM, reports"
+    }
+  ]
+}
