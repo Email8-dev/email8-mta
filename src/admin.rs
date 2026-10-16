@@ -96,13 +96,15 @@ pub async fn admin_data(
     )
     .await?;
 
-    let mut conn = state.pool.acquire().await.map_err(err_db)?;
+    // PROVRLS-1: stamp + queries share ONE transaction (the context is
+    // transaction-local and evaporates on autocommit).
+    let mut tx = state.pool.begin().await.map_err(err_db)?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(&mut *conn)
+        .execute(&mut *tx)
         .await;
 
-    match page.as_str() {
+    let result = match page.as_str() {
         "queue" => {
             use sqlx::Row;
             let rows = sqlx::query(
@@ -117,7 +119,7 @@ pub async fn admin_data(
                  GROUP BY m.id ORDER BY m.created_at DESC LIMIT 200",
             )
             .bind(env_id)
-            .fetch_all(&mut *conn)
+            .fetch_all(&mut *tx)
             .await
             .map_err(err_db)?;
             Ok(Json(serde_json::json!({
@@ -140,7 +142,7 @@ pub async fn admin_data(
                  FROM email8.dkim_keys WHERE env_id = $1 ORDER BY domain, selector",
             )
             .bind(env_id)
-            .fetch_all(&mut *conn)
+            .fetch_all(&mut *tx)
             .await
             .map_err(err_db)?;
             Ok(Json(serde_json::json!({
@@ -165,7 +167,7 @@ pub async fn admin_data(
                  ORDER BY created_at DESC LIMIT 200",
             )
             .bind(env_id)
-            .fetch_all(&mut *conn)
+            .fetch_all(&mut *tx)
             .await
             .map_err(err_db)?;
             Ok(Json(serde_json::json!({
@@ -177,15 +179,20 @@ pub async fn admin_data(
                 })).collect::<Vec<_>>(),
             })))
         }
-        "spam" => spam_data(&mut conn, env_id).await.map(Json),
-        "hooks" => hooks_data(&mut conn, env_id).await.map(Json),
-        "domains" => domains_data(&mut conn, env_id).await.map(Json),
-        "external_reports" => external_reports_data(&mut conn, env_id).await.map(Json),
-        other => Err((
-            StatusCode::NOT_FOUND,
-            format!("Unknown admin data page: {other}"),
-        )),
-    }
+        "spam" => spam_data(&mut *tx, env_id).await.map(Json),
+        "hooks" => hooks_data(&mut *tx, env_id).await.map(Json),
+        "domains" => domains_data(&mut *tx, env_id).await.map(Json),
+        "external_reports" => external_reports_data(&mut *tx, env_id).await.map(Json),
+        other => {
+            let _ = tx.commit().await;
+            return Err((
+                StatusCode::NOT_FOUND,
+                format!("Unknown admin data page: {other}"),
+            ));
+        }
+    };
+    tx.commit().await.map_err(err_db)?;
+    result
 }
 
 fn queue_page() -> AdminUiPage {

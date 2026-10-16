@@ -57,12 +57,6 @@ mod valkey_limits;
 
 use utoipa::OpenApi;
 
-/// mimalloc global allocator (design §6 D13) — every background worker in
-/// this binary (queue dispatch, delivery, FTRL training, report windows,
-/// DKIM rotation sweep) allocates through it.
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     sentin8::shell::serve(

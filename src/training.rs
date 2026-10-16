@@ -94,13 +94,22 @@ async fn train_account(
     samples: &[(Uuid, bool)],
 ) -> Result<(), String> {
     use sqlx::Row;
+    // PROVRLS-1: the context stamp is transaction-local — run the whole
+    // training pass (stamp + sample reads + model persist) inside ONE
+    // transaction so every query sees the env context.
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| e.to_string())?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
 
-    // Load (or seed) the current model artifact.
+    // Load (or seed) the current model artifact (Storage-only fetch —
+    // no DB query, so the pool is fine here; the sample reads below run
+    // inside the stamped transaction).
     let mut model = load_model(pool, config, env_id, account_id).await?;
 
     // Fetch each sampled email's subject + search corpus and train.
@@ -111,7 +120,7 @@ async fn train_account(
         )
         .bind(account_id)
         .bind(email_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
         let Some(row) = row else {
@@ -153,6 +162,7 @@ async fn train_account(
         )
         .await
         .map_err(|e| format!("model artifact store: {e}"))?;
+    tx.commit().await.map_err(|e| e.to_string())?;
 
     // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
     // shell's 8b relay drains post-commit; bus dedupes on row id.

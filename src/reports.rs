@@ -56,9 +56,15 @@ pub async fn record_dmarc_result(
     if from_domain.is_empty() {
         return;
     }
+    // PROVRLS-1: stamp + write share ONE transaction (the context is
+    // transaction-local — on the raw pool each statement lands on a
+    // different connection and the stamp never applies to the INSERT).
+    let Ok(mut tx) = pool.begin().await else {
+        return;
+    };
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await;
     // 24h window boundaries.
     let end = chrono::Utc::now();
@@ -85,11 +91,12 @@ pub async fn record_dmarc_result(
     .bind(start)
     .bind(end)
     .bind(record.to_string())
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await;
     if let Err(e) = res {
         tracing::debug!(error = %e, "email8:mta: dmarc aggregate upsert failed");
     }
+    let _ = tx.commit().await;
 }
 
 /// Detect + persist inbound external reports (design §P4.6): DMARC rua
@@ -120,9 +127,13 @@ pub async fn record_external_report(
         .next()
         .unwrap_or_default()
         .to_string();
+    // PROVRLS-1: stamp + write share ONE transaction.
+    let Ok(mut tx) = pool.begin().await else {
+        return;
+    };
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await;
     let res = sqlx::query(
         r#"INSERT INTO email8.reports_external
@@ -134,8 +145,9 @@ pub async fn record_external_report(
     .bind(&domain)
     .bind(serde_json::json!({ "size": raw.len(), "head": &text[..head_end.min(2048)] }).to_string())
     .bind(from_address)
-    .execute(pool)
+    .execute(&mut *tx)
     .await;
+    let _ = tx.commit().await;
     if let Err(e) = res {
         tracing::debug!(error = %e, "email8:mta: external report insert failed");
     } else {
@@ -166,9 +178,13 @@ async fn close_windows(
         let window_start: chrono::DateTime<chrono::Utc> = row.get("window_start");
         let window_end: chrono::DateTime<chrono::Utc> = row.get("window_end");
         let rows: serde_json::Value = row.get("rows");
+        // PROVRLS-1: stamp + UPDATE share ONE transaction per window.
+        let Ok(mut tx) = pool.begin().await else {
+            continue;
+        };
         let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
             .bind(env_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await;
 
         // RFC 7489 Appendix C aggregate document (JSON).
@@ -214,8 +230,9 @@ async fn close_windows(
         let _ = config;
         sqlx::query("UPDATE email8.reports_dmarc SET submitted_at = now() WHERE id = $1")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+        let _ = tx.commit().await;
         tracing::info!(report_id = id, %domain, "email8:mta: DMARC aggregate submitted");
     }
 
@@ -236,9 +253,13 @@ async fn close_windows(
         let window_start: chrono::DateTime<chrono::Utc> = row.get("window_start");
         let window_end: chrono::DateTime<chrono::Utc> = row.get("window_end");
         let rows: serde_json::Value = row.get("rows");
+        // PROVRLS-1: stamp + UPDATE share ONE transaction per window.
+        let Ok(mut tx) = pool.begin().await else {
+            continue;
+        };
         let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
             .bind(env_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await;
 
         // RFC 8460 §4 JSON structure.
@@ -279,8 +300,9 @@ async fn close_windows(
         }
         sqlx::query("UPDATE email8.reports_tls SET submitted_at = now() WHERE id = $1")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+        let _ = tx.commit().await;
         tracing::info!(report_id = id, %domain, "email8:mta: TLS-RPT aggregate submitted");
     }
     Ok(())

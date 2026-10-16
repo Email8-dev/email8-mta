@@ -777,14 +777,18 @@ impl Session {
             .unwrap_or_default()
             .to_ascii_lowercase();
         if !signing_domain.is_empty() {
-            if let Ok(mut conn) = self.pool.acquire().await {
+            // PROVRLS-1: stamp + signers SELECT share ONE transaction
+            // (the context is transaction-local and evaporates on
+            // autocommit).
+            if let Ok(mut tx) = self.pool.begin().await {
                 let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
                     .bind(env_id)
-                    .execute(&mut *conn)
+                    .execute(&mut *tx)
                     .await;
                 if let Ok(signers) =
-                    crate::dkim_manager::load_active_signers(&mut conn, env_id).await
+                    crate::dkim_manager::load_active_signers(&mut tx, env_id).await
                 {
+                    let _ = tx.commit().await;
                     let blocks =
                         crate::dkim_manager::sign_message(&signers, &signing_domain, &processed);
                     for b in blocks {

@@ -31,9 +31,14 @@ pub async fn audit(
     resource_id: &str,
     details: serde_json::Value,
 ) {
+    // PROVRLS-1: stamp + INSERT share ONE transaction (the context is
+    // transaction-local and never applies on the raw pool).
+    let Ok(mut tx) = pool.begin().await else {
+        return;
+    };
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await;
     let res = sqlx::query(
         r#"INSERT INTO sys_audit_events
@@ -47,8 +52,9 @@ pub async fn audit(
     .bind(resource_type)
     .bind(resource_id)
     .bind(details)
-    .execute(pool)
+    .execute(&mut *tx)
     .await;
+    let _ = tx.commit().await;
     if let Err(e) = res {
         tracing::warn!(error = %e, action, "email8:mta: audit insert failed");
     }

@@ -572,9 +572,12 @@ async fn release_quota(
     let rcpt = address.to_ascii_lowercase();
     let rcpt_domain = rcpt.split('@').next_back().unwrap_or("").to_string();
     let sender_domain = sender.split('@').next_back().unwrap_or("").to_string();
+    // PROVRLS-1: stamp + UPDATEs share ONE transaction (the context is
+    // transaction-local and never applies on the raw pool).
+    let mut tx = pool.begin().await?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await;
     for (kind, key) in [
         ("sender", sender),
@@ -592,9 +595,10 @@ async fn release_quota(
         .bind(kind)
         .bind(size)
         .bind(key)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
     }
+    tx.commit().await?;
     Ok(())
 }
 

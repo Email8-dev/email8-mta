@@ -359,16 +359,19 @@ pub async fn load_hooks(
     env_id: &Uuid,
 ) -> Result<(Vec<MilterHook>, Vec<HttpHook>), String> {
     use sqlx::Row;
+    // PROVRLS-1: stamp + SELECT share ONE transaction (the context is
+    // transaction-local and never applies on the raw pool).
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await;
     let rows = sqlx::query(
         "SELECT stage, hook_kind, target, is_enabled, config \
          FROM email8.mta_hooks WHERE env_id = $1",
     )
     .bind(env_id)
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await
     .map_err(|e| e.to_string())?;
     let mut milters = Vec::new();
@@ -402,6 +405,7 @@ pub async fn load_hooks(
             });
         }
     }
+    tx.commit().await.map_err(|e| e.to_string())?;
     Ok((milters, http))
 }
 

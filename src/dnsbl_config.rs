@@ -55,21 +55,25 @@ impl DnsblZoneCache {
                 }
             }
         }
-        let rows: Vec<(String, String, i32)> = match self.pool.acquire().await {
-            Ok(mut conn) => {
+        let rows: Vec<(String, String, i32)> = match self.pool.begin().await {
+            Ok(mut tx) => {
+                // PROVRLS-1: stamp + SELECT share ONE transaction.
                 let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
                     .bind(env_id)
-                    .execute(&mut *conn)
+                    .execute(&mut *tx)
                     .await;
                 match sqlx::query_as(
                     "SELECT zone, scopes, max_checks FROM email8.dnsbl_zones \
                      WHERE env_id = $1 ORDER BY zone",
                 )
                 .bind(env_id)
-                .fetch_all(&mut *conn)
+                .fetch_all(&mut *tx)
                 .await
                 {
-                    Ok(rows) => rows,
+                    Ok(rows) => {
+                        let _ = tx.commit().await;
+                        rows
+                    }
                     Err(e) => {
                         tracing::warn!(error = %e, "email8:mta: dnsbl zone load failed");
                         Vec::new()
