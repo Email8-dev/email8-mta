@@ -5076,13 +5076,13 @@ dependencies = [
 [[package]]
 name = "sentin8-stat-client"
 version = "0.1.0"
-source = "git+https://github.com/Sentin8/sentin8-stat?tag=stat-sdk-v0.6.3#2d376bd4a0c80c20773c8339fa5378ac5f27e68d"
+source = "git+https://github.com/Sentin8/sentin8-stat?tag=stat-sdk-v0.6.4#084674b509e8a5e68c55c4b66d3c23533d9b9273"
 dependencies = [
  "async-trait",
  "chrono",
  "reqwest 0.12.28",
- "sentin8-m2m 0.1.0 (git+https://github.com/Sentin8/sentin8-sdk?tag=sdk-v0.6.4)",
- "sentin8-middleware 0.1.0 (git+https://github.com/Sentin8/sentin8-sdk?tag=sdk-v0.6.4)",
+ "sentin8-m2m 0.1.0 (git+https://github.com/Sentin8/sentin8-sdk?tag=sdk-v0.6.5)",
+ "sentin8-middleware 0.1.0 (git+https://github.com/Sentin8/sentin8-sdk?tag=sdk-v0.6.5)",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -5094,7 +5094,7 @@ dependencies = [
 [[package]]
 name = "sentin8-stat-contracts"
 version = "0.1.0"
-source = "git+https://github.com/Sentin8/sentin8-stat?tag=stat-sdk-v0.6.3#2d376bd4a0c80c20773c8339fa5378ac5f27e68d"
+source = "git+https://github.com/Sentin8/sentin8-stat?tag=stat-sdk-v0.6.4#084674b509e8a5e68c55c4b66d3c23533d9b9273"
 dependencies = [
  "chrono",
  "serde",
@@ -5105,7 +5105,7 @@ dependencies = [
 [[package]]
 name = "sentin8-stat-sdk"
 version = "0.1.0"
-source = "git+https://github.com/Sentin8/sentin8-stat?tag=stat-sdk-v0.6.3#2d376bd4a0c80c20773c8339fa5378ac5f27e68d"
+source = "git+https://github.com/Sentin8/sentin8-stat?tag=stat-sdk-v0.6.4#084674b509e8a5e68c55c4b66d3c23533d9b9273"
 dependencies = [
  "sentin8-stat-client",
  "sentin8-stat-contracts",
