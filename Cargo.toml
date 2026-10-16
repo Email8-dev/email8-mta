@@ -21,25 +21,12 @@ name = "email8_mta_server"
 path = "src/lib.rs"
 
 
-[features]
-# Profiling build (MTALEAK-1): swap the mimalloc global allocator for the
-# system allocator so malloc-level profilers (heaptrack) see every
-# allocation — mimalloc's internal arenas are invisible to LD_PRELOAD
-# malloc hooks. Diagnostics-only; never enable in fleet builds (the
-# allocator swap changes allocation behavior being measured only for the
-# per-allocation overhead, not the allocation sites).
-profile-heaptrack = []
-
 [dependencies]
 # Platform SDK pin (RS 2.3) - the only cross-repo dependency; carries the
 # entire shared library workspace behind the `sentin8` facade.
 sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.4" }
 # email8 namespace facade pin - carries this vertical's contracts/clients.
 email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.4" }
-# Heap-diagnostics probe (MTALEAK-1): SIGUSR1 handler registration for the
-# env-gated mimalloc stats dump. Direct dep because main.rs links the
-# registration + raw write itself.
-libc = "0.2"
 
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
@@ -65,7 +52,7 @@ valkey-glide = "0.9.0"
 dotenvy = "0.15"
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-mimalloc = { version = "0.1", default-features = false, features = ["extended"] }
+mimalloc = { version = "0.1", default-features = false }
 thiserror = "1"
 anyhow = "1"
 futures-util = "0.3"

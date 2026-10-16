@@ -4,8 +4,7 @@
     {
       "service_type": "email8:mta",
       "extra_env": {
-        "EMAIL8_MTA_ACCEPT_PROXY": "true",
-        "EMAIL8_MTA_HEAP_STATS": "1"
+        "EMAIL8_MTA_ACCEPT_PROXY": "true"
       }
     }
   ],
