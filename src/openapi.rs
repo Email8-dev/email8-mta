@@ -10,8 +10,25 @@ use utoipa::OpenApi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        sentin8::shell::policy_check_relation,
+        sentin8::shell::policy_delete_attribute,
+        sentin8::shell::policy_delete_relation,
+        sentin8::shell::policy_delete_set,
+        sentin8::shell::policy_get_set,
+        sentin8::shell::policy_list_attributes,
+        sentin8::shell::policy_list_relations,
+        sentin8::shell::policy_list_sets,
+        sentin8::shell::policy_mode_disable,
+        sentin8::shell::policy_mode_enforce,
+        sentin8::shell::policy_mode_shadow,
+        sentin8::shell::policy_put_attribute,
+        sentin8::shell::policy_put_relation,
+        sentin8::shell::policy_put_set,
+        sentin8::shell::policy_test_set,
         crate::submit::submit,
         crate::admin::admin_data,
+        crate::admin::get_admin_ui,
+        crate::server::health,
     ),
     components(schemas(
         email8::contracts::SubmitRequest,
@@ -19,7 +36,7 @@ use utoipa::OpenApi;
     )),
     security(),
     tags(
+        (name = "policy", description = "Shield policy administration (shared surface)"),
         (name = "email8-mta", description = "Sentin8 Email8:Mta — SMTP transfer engine, queue, DKIM, reports"),
     ),
-)]
-pub struct MtaOpenApi;
+)]pub struct MtaOpenApi;

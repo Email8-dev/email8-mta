@@ -18,13 +18,25 @@ use uuid::Uuid;
 
 use crate::server::AppState;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams, utoipa::ToSchema)]
 pub struct AdminQuery {
     /// REQUIRED — the env being administered (§5.1 hardening).
     pub target_env_id: Option<Uuid>,
 }
 
 /// `GET /v1/admin/ui/{page}` — RFW definitions.
+#[utoipa::path(
+    get,
+    path = "/v1/admin/{page}",
+    params(("page" = String, Path, description = "RFW page name (queue, dkim, reports)")),
+    responses(
+        (status = 200, description = "RFW page definition", body = serde_json::Value),
+        (status = 403, description = "Policy deny"),
+        (status = 404, description = "Unknown page"),
+    ),
+    security(("email8:admin:queue" = [])),
+    tag = "admin-ui",
+)]
 pub async fn get_admin_ui(
     State(state): State<AppState>,
     headers: HeaderMap,
