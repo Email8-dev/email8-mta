@@ -3,14 +3,14 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Outbound delivery — the remote route engine (design §3.2).
+//! Outbound delivery - the remote route engine (design §3.2).
 //!
 //! Per route (domain grouping): TLSRPT lookup → MTA-STS policy (cached)
 //! → MX resolution → per-host connection strategy → STARTTLS/implicit
 //! → MAIL/RCPT/BDAT or LMTP → per-recipient classification → caller
 //! persists queue state. DNS arrives via the `DnsTxt` resolver injected
 //! by the queue manager (MX records surface as TXT rows shaped
-//! `"10 mx1.example.com"` — the hickory adapter in `resolver.rs`).
+//! `"10 mx1.example.com"` - the hickory adapter in `resolver.rs`).
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -22,7 +22,7 @@ use crate::outbound_policy::{MtaStsPolicy, StsCache, TlsrptPolicy};
 #[derive(Debug, Clone)]
 pub struct OutboundConfig {
     pub connect_timeout_secs: u64,
-    /// Skip TLS verification for test deployments (default false —
+    /// Skip TLS verification for test deployments (default false -
     /// DANE/STS verification is the production path).
     pub insecure_skip_tls_verify: bool,
     /// Max recipients per outbound transaction.
@@ -149,7 +149,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         self
     }
 
-    /// Read one reply line (single-line replies only — multiline EHLO
+    /// Read one reply line (single-line replies only - multiline EHLO
     /// replies are drained by `ehlo`).
     pub async fn read_reply(&mut self) -> Result<(u16, String), String> {
         let mut line = Vec::new();
@@ -215,7 +215,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         Ok((code, caps))
     }
 
-    /// STARTTLS — returns the raw TCP stream so the caller can wrap it
+    /// STARTTLS - returns the raw TCP stream so the caller can wrap it
     /// with TLS and construct a new client.
     pub async fn starttls_ready(&mut self, caps: &[String]) -> Result<(), String> {
         if !caps.iter().any(|c| c.starts_with("STARTTLS")) {
@@ -258,7 +258,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         Ok(())
     }
 
-    /// RCPT — one recipient. Returns the raw reply for classification.
+    /// RCPT - one recipient. Returns the raw reply for classification.
     pub async fn rcpt(&mut self, rcpt: &OutboundRecipient) -> Result<(u16, String), String> {
         let mut params = String::new();
         if let Some(notify) = &rcpt.notify {
@@ -272,7 +272,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         self.read_reply().await
     }
 
-    /// DATA body → classify all recipients from the final reply (SMTP) —
+    /// DATA body → classify all recipients from the final reply (SMTP) -
     /// LMTP reads one reply per accepted recipient.
     pub async fn data(
         &mut self,
@@ -317,7 +317,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SmtpClient<S> {
         }
     }
 
-    /// BDAT delivery (RFC 3030) — no dot-stuffing, byte-counted.
+    /// BDAT delivery (RFC 3030) - no dot-stuffing, byte-counted.
     pub async fn bdat(
         &mut self,
         raw: &[u8],

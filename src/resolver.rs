@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! DNS resolver adapter — implements `email8::mail_auth::DnsTxt` for the
+//! DNS resolver adapter - implements `email8::mail_auth::DnsTxt` for the
 //! Mta. Uses the system resolver via `tokio::net::lookup_host` for A /
 //! MX-shaped queries where possible, and a configurable DNS-over-HTTPS
 //! endpoint for TXT lookups (the platform gap G3 tracks a hickory
@@ -50,7 +50,7 @@ impl email8::mail_auth::DnsTxt for Resolver {
             return lookup_mx_doh(&self.doh_url, &self.doh_token, domain).await;
         }
         if let Some(host) = name.strip_prefix("_exists.") {
-            // RFC 7208 exists: — any A record proves the name exists.
+            // RFC 7208 exists: - any A record proves the name exists.
             let records = lookup_a(host).await?;
             return Ok(if records.is_empty() {
                 vec![]
@@ -72,7 +72,7 @@ async fn lookup_a(host: &str) -> Result<Vec<String>, String> {
 }
 
 /// DNSBL bridge (story 5.2): the spam crate's DNSBL gate needs an A
-/// lookup against `{reversed}.{zone}` — same system-resolver path.
+/// lookup against `{reversed}.{zone}` - same system-resolver path.
 #[async_trait]
 impl email8::spam::DnsblResolver for Resolver {
     async fn lookup_a(&self, name: &str) -> Result<Vec<String>, String> {

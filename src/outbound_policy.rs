@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Outbound policy — MTA-STS (RFC 8460 predecessor, RFC 8461) policy
+//! Outbound policy - MTA-STS (RFC 8460 predecessor, RFC 8461) policy
 //! fetch + cache, and TLSRPT (RFC 8460) `_smtp._tls` TXT lookup.
 //! DNS arrives via the injected `DnsTxt`; the `.well-known` fetch uses
 //! reqwest with a short timeout (the policy is cached per max_age).
@@ -174,7 +174,7 @@ impl StsCache {
             None => fetch_policy_http(domain).await,
         };
 
-        // 4. Cache (including the None case — negative caching with the
+        // 4. Cache (including the None case - negative caching with the
         // DNS id still pinned).
         let mut entries = self.entries.write().await;
         entries.insert(

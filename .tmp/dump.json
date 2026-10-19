@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "email8-mta",
-    "description": "Sentin8 Email8:Mta — SMTP/LMTP transfer engine, queue, DKIM, reports.",
+    "description": "Sentin8 Email8:Mta - SMTP/LMTP transfer engine, queue, DKIM, reports.",
     "license": {
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
@@ -535,7 +535,7 @@
         "tags": [
           "admin-ui"
         ],
-        "summary": "`GET /v1/admin/ui/{page}` — RFW definitions.",
+        "summary": "`GET /v1/admin/ui/{page}` - RFW definitions.",
         "operationId": "get_admin_ui",
         "parameters": [
           {
@@ -574,7 +574,7 @@
         "tags": [
           "email8-mta"
         ],
-        "summary": "`POST /v1/admin/{page}` — data endpoints.",
+        "summary": "`POST /v1/admin/{page}` - data endpoints.",
         "operationId": "admin_data",
         "parameters": [
           {
@@ -642,7 +642,7 @@
         "tags": [
           "email8-mta"
         ],
-        "summary": "`POST /v1/internal/submit` — the JMAP/Store submit path.",
+        "summary": "`POST /v1/internal/submit` - the JMAP/Store submit path.",
         "operationId": "submit",
         "requestBody": {
           "content": {
@@ -737,7 +737,7 @@
           "user_sub": {
             "type": "string",
             "format": "uuid",
-            "description": "Sentin8:Auth user `sub` — re-verified by Mta from claims."
+            "description": "Sentin8:Auth user `sub` - re-verified by Mta from claims."
           }
         }
       },
@@ -753,7 +753,7 @@
               "null"
             ],
             "format": "date-time",
-            "description": "Earliest due event (retry/notify/expiry) — informational."
+            "description": "Earliest due event (retry/notify/expiry) - informational."
           },
           "queue_id": {
             "type": "string",
@@ -771,7 +771,7 @@
     },
     {
       "name": "email8-mta",
-      "description": "Sentin8 Email8:Mta — SMTP transfer engine, queue, DKIM, reports"
+      "description": "Sentin8 Email8:Mta - SMTP transfer engine, queue, DKIM, reports"
     }
   ]
 }

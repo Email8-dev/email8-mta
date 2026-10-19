@@ -9,7 +9,7 @@
 //! Email8 services call Sentin8:Storage for message blobs. The client is
 //! **certificate-presenting** (CERTFREE-1/4V): every call presents the
 //! MTA's own Acme-issued workload certificate (`CN=m2m-email8:mta`) in
-//! the TLS handshake — Storage's TLS layer authenticates it and the
+//! the TLS handshake - Storage's TLS layer authenticates it and the
 //! registry map authorizes the scopes. No M2M token exists on this
 //! path.
 
@@ -18,7 +18,7 @@ use std::sync::Arc;
 /// Build a certificate-presenting Storage client (the MTA's own
 /// `email8:mta` workload identity). Falls back to the plain dev client
 /// when the workload certificate cannot be ensured yet (Acme still
-/// coming up) — the caller retries on the next boot; Storage rejects a
+/// coming up) - the caller retries on the next boot; Storage rejects a
 /// tokenless dev client loudly at its authorization gate.
 ///
 /// # Errors
@@ -49,7 +49,7 @@ pub type SharedStorage = Arc<sentin8_storage_sdk::client::StorageClient>;
 
 /// A cert-presenting HTTP client for the Store's internal data API
 /// (the same `email8:mta` workload identity the Storage client presents
-/// — CERTFREE-4V). Store's TLS layer authenticates the handshake and its
+/// - CERTFREE-4V). Store's TLS layer authenticates the handshake and its
 /// internal-API gate resolves the workload against the registry map; no
 /// bearer header is attached.
 ///

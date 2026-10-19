@@ -14,7 +14,7 @@
 -- domain tables stay in the shared `email8` schema (unchanged).
 --
 -- The relay is spawned per shell boot with the service leaf's notify
--- channel (`mta_outbox_changed`) — the trigger below notifies it.
+-- channel (`mta_outbox_changed`) - the trigger below notifies it.
 CREATE SCHEMA IF NOT EXISTS mta;
 CREATE TABLE IF NOT EXISTS mta.outbox (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

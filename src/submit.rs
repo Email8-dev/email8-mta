@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Queue writer — the single enqueue path (SMTP DATA, BDAT, and the
+//! Queue writer - the single enqueue path (SMTP DATA, BDAT, and the
 //! internal submit API all land here): blob → Storage, message +
 //! recipients + due events → one transaction, outbox event emitted.
 //!
@@ -47,7 +47,7 @@ impl QueueWriter {
     }
 
     /// Enqueue with the pipeline's spam score (stored per recipient;
-    /// design §2.2 — the local-delivery ingest applies junk re-file at
+    /// design §2.2 - the local-delivery ingest applies junk re-file at
     /// ≥50).
     pub async fn enqueue_with_spam(
         &self,
@@ -59,7 +59,7 @@ impl QueueWriter {
         spam_pct: Option<f32>,
     ) -> Result<Uuid, String> {
         // 0. Quota check + increment (sender / rcpt / rcpt-domain buckets;
-        //    design §6 — `452 4.3.1` on exceed, decremented at terminal
+        //    design §6 - `452 4.3.1` on exceed, decremented at terminal
         //    recipient state).
         let quota_max_count: i64 = self.config.quota_max_count;
         let quota_max_bytes: i64 = self.config.quota_max_bytes;
@@ -252,7 +252,7 @@ impl QueueWriter {
             let _ = recipient_id;
         }
 
-        // Blob link ledger row (queue reference — GC keeps blobs with
+        // Blob link ledger row (queue reference - GC keeps blobs with
         // live queue links). owner_account_id is NULL until the message
         // is filed into an account (the linked row at ingest time owns
         // the binding).
@@ -290,7 +290,7 @@ impl QueueWriter {
     }
 }
 
-/// `POST /v1/internal/submit` — the JMAP/Store submit path.
+/// `POST /v1/internal/submit` - the JMAP/Store submit path.
 #[utoipa::path(
     post,
     path = "/v1/internal/submit",
@@ -312,7 +312,7 @@ pub async fn submit(
     // user token; Mta never trusts the Store's check alone).
     let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
     // Step-5 policy decision (Phase 28 §4.3): Mta never trusts the
-    // Store's check alone — submission authority is Shield's call.
+    // Store's check alone - submission authority is Shield's call.
     sentin8::shell::policy::require(
         &state.core.admin.policy,
         &a,
@@ -356,7 +356,7 @@ async fn emit_event(
     event_type: &str,
     payload: serde_json::Value,
 ) {
-    // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
+    // Local `email8.outbox` (OUTBOX-EMAIL8 - DBX producer path): the
     // shell's 8b relay drains post-commit; bus dedupes on row id.
     if let Err(e) =
         sentin8::bus::outbox::insert_outbox_row_pool(pool, env_id, "email8", event_type, &payload)

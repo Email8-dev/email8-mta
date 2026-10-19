@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Email8:Mta admin — queue viewer, DKIM keys, report status (RFW pages
+//! Email8:Mta admin - queue viewer, DKIM keys, report status (RFW pages
 //! + data endpoints). Enforces §5.1 hardening on every handler.
 
 use axum::{
@@ -20,11 +20,11 @@ use crate::server::AppState;
 
 #[derive(Debug, serde::Deserialize, utoipa::IntoParams, utoipa::ToSchema)]
 pub struct AdminQuery {
-    /// REQUIRED — the env being administered (§5.1 hardening).
+    /// REQUIRED - the env being administered (§5.1 hardening).
     pub target_env_id: Option<Uuid>,
 }
 
-/// `GET /v1/admin/ui/{page}` — RFW definitions.
+/// `GET /v1/admin/ui/{page}` - RFW definitions.
 #[utoipa::path(
     get,
     path = "/v1/admin/{page}",
@@ -44,7 +44,7 @@ pub async fn get_admin_ui(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
     // Step-5 policy decision (Phase 28 §4.3): the queue action governs
-    // the RFW page read — the scope-mirror carries the sibling admin
+    // the RFW page read - the scope-mirror carries the sibling admin
     // scopes + platform-admin permits for it.
     sentin8::shell::policy::require(
         &state.core.admin.policy,
@@ -73,7 +73,7 @@ pub async fn get_admin_ui(
     ))
 }
 
-/// `POST /v1/admin/{page}` — data endpoints.
+/// `POST /v1/admin/{page}` - data endpoints.
 #[utoipa::path(
     post,
     path = "/v1/admin/{page}",
@@ -99,7 +99,7 @@ pub async fn admin_data(
         .target_env_id
         .ok_or((StatusCode::BAD_REQUEST, "missing target_env_id".into()))?;
     let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
-    // Step-5 policy decision (Phase 28 §4.3) — queue governs.
+    // Step-5 policy decision (Phase 28 §4.3) - queue governs.
     sentin8::shell::policy::require(
         &state.core.admin.policy,
         &a,
@@ -347,7 +347,7 @@ fn reports_page() -> AdminUiPage {
 }
 
 /// Inbound external reports viewer (DMARC rua / TLS-RPT / ARF ruf
-/// feedback) — design §P4.6.
+/// feedback) - design §P4.6.
 async fn external_reports_data(
     conn: &mut sqlx::PgConnection,
     env_id: Uuid,
@@ -378,8 +378,8 @@ fn err_db(e: sqlx::Error) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
 }
 
-/// Spam policy view — the env's MTA policy row (thresholds, size caps,
-/// relay posture — the tunables the spam gate consults; design §7
+/// Spam policy view - the env's MTA policy row (thresholds, size caps,
+/// relay posture - the tunables the spam gate consults; design §7
 /// `spam` page).
 async fn spam_data(
     conn: &mut sqlx::PgConnection,
@@ -414,7 +414,7 @@ async fn spam_data(
     Ok(serde_json::json!({ "items": items }))
 }
 
-/// Hooks view — stage scripts (Sieve), milter endpoints, MTA hook URLs
+/// Hooks view - stage scripts (Sieve), milter endpoints, MTA hook URLs
 /// (design §7 `hooks` page).
 async fn hooks_data(
     conn: &mut sqlx::PgConnection,
@@ -439,7 +439,7 @@ async fn hooks_data(
     }))
 }
 
-/// Domains view — the mail domains this tenant serves (design §7
+/// Domains view - the mail domains this tenant serves (design §7
 /// `domains` page). The rows live in the Store-owned schema (mta
 /// design §7: "domain rows themselves live in Store schema") but the
 /// same database + RLS context governs both services, so the Mta admin

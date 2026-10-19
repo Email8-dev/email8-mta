@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Inbound message pipeline (design §2.2) — the end-of-DATA processing
+//! Inbound message pipeline (design §2.2) - the end-of-DATA processing
 //! shared by the SMTP session and the internal submit path:
 //!
 //! Received-loop guard → DKIM verify → Authentication-Results build →

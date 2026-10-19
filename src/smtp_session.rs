@@ -3,12 +3,12 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Inbound SMTP session — the protocol state machine over a raw TCP stream.
+//! Inbound SMTP session - the protocol state machine over a raw TCP stream.
 //!
 //! P1 scope: greeting, EHLO/HELO, AUTH (XOAUTH2/OAUTHBEARER + gated PLAIN
 //! bridge), MAIL/RCPT envelope, DATA → blob → queue rows, with the
 //! policy/limit gates from the mta design §2.1. STARTTLS is answered with
-//! the ready line — the listener task owns the stream swap (platform TLS).
+//! the ready line - the listener task owns the stream swap (platform TLS).
 //!
 //! The session is transport-agnostic: it drives an `AsyncRead + AsyncWrite`
 //! pair, so the same code serves plaintext + STARTTLS and implicit TLS.
@@ -27,7 +27,7 @@ const MAX_TRANSFER_BYTES: i64 = 250 * 1024 * 1024;
 const MAX_RECIPIENTS: usize = 100;
 
 /// A transport the session can drive: plain TCP, STARTTLS-wrapped, or
-/// implicit TLS — boxed so the STARTTLS upgrade can swap it mid-session
+/// implicit TLS - boxed so the STARTTLS upgrade can swap it mid-session
 /// (platform story 0.1: `sentin8::tls::RawTcpListener::upgrade_starttls`).
 pub type BoxedStream = Box<dyn AsyncStream + Send + Unpin>;
 
@@ -37,7 +37,7 @@ impl<T: AsyncRead + AsyncWrite + Send + Unpin + ?Sized> AsyncStream for T {}
 
 /// STARTTLS upgrade handle: wraps the current plain transport in TLS
 /// in place. Built by the listener from the `sentin8-tls` acceptor
-/// (SNI-aware PQ cert selection — no classical fallback).
+/// (SNI-aware PQ cert selection - no classical fallback).
 #[derive(Clone)]
 pub struct StartTlsUpgrader {
     acceptor: Arc<tokio_rustls::TlsAcceptor>,
@@ -50,7 +50,7 @@ impl StartTlsUpgrader {
 
     /// Wrap the plain stream. The caller has already replied `220
     /// Ready` and drained buffered plaintext (pipelining after STARTTLS
-    /// is a protocol violation — rejected before this point).
+    /// is a protocol violation - rejected before this point).
     pub async fn upgrade(&self, plain: BoxedStream) -> Result<BoxedStream, String> {
         // rustls needs a concrete TcpStream for SNI; the boxed stream is
         // re-wrapped via the acceptor's generic `accept` on a shim.
@@ -113,7 +113,7 @@ pub struct Session {
     pool: sqlx::PgPool,
     /// The service policy engine (step-5 gate; Phase 28).
     engine: std::sync::Arc<sentin8::shield::PolicyEngine>,
-    /// Tenant binding for unauthenticated (MX) traffic — resolved by the
+    /// Tenant binding for unauthenticated (MX) traffic - resolved by the
     /// listener from SNI/destination domain; authenticated sessions use
     /// the token's env.
     env_id: Option<Uuid>,
@@ -129,15 +129,15 @@ pub struct Session {
     /// Accumulated message body under DATA/BDAT.
     data_buffer: Vec<u8>,
     /// Valkey rate/greylist/fail2ban handles (None when Valkey is
-    /// unavailable — the session degrades to no limits, design §6).
+    /// unavailable - the session degrades to no limits, design §6).
     limits: Option<crate::valkey_limits::ValkeyLimits>,
     /// STARTTLS upgrade handle (None on dev/plain listeners without
-    /// platform TLS — the command then falls back to the ready-line
+    /// platform TLS - the command then falls back to the ready-line
     /// acknowledgement).
     starttls: Option<StartTlsUpgrader>,
     /// Set once the transport is TLS (double-STARTTLS guard).
     starttls_taken: bool,
-    /// Story 5.2 — per-env DNSBL zone cache (None disables the gate).
+    /// Story 5.2 - per-env DNSBL zone cache (None disables the gate).
     dnsbl_zones: Option<Arc<crate::dnsbl_config::DnsblZoneCache>>,
 }
 
@@ -248,11 +248,11 @@ impl Session {
         // PROXY protocol v2 (gate design §3.3, story 7.4): when the
         // listener accepted this session behind Email8:Gate, the gate
         // prepended a v2 header with the real client address. Consume it
-        // before the banner; a malformed header is a desync — drop the
+        // before the banner; a malformed header is a desync - drop the
         // connection.
         if email8::gate::contracts::proxy_parse::accept_proxy_from_env("EMAIL8_MTA_ACCEPT_PROXY") {
             if let Err(e) = self.consume_proxy_v2().await {
-                tracing::warn!(error = %e, "email8:mta: PROXY v2 parse failed — dropping");
+                tracing::warn!(error = %e, "email8:mta: PROXY v2 parse failed - dropping");
                 return Ok(());
             }
         }
@@ -292,7 +292,7 @@ impl Session {
                     }
                     Element::DataChunk { data, last: _ } => {
                         // Terminal detection uses the session's bdat_last
-                        // marker — the receiver strips the DATA terminator.
+                        // marker - the receiver strips the DATA terminator.
                         if let Some(reply) = self.accept_data(data).await? {
                             self.write_reply(reply).await?;
                         }
@@ -335,7 +335,7 @@ impl Session {
                     self.write_reply(email8::smtp_proto::need_ehlo()).await?;
                     return Ok(false);
                 }
-                // Sender rate limit (design §6 — fixed-window per env;
+                // Sender rate limit (design §6 - fixed-window per env;
                 // authenticated senders use their own namespace).
                 if let (Some(limits), Some(env)) = (&self.limits, self.env_id) {
                     let kind = if self.authenticated.is_some() {
@@ -362,7 +362,7 @@ impl Session {
                             return Ok(false);
                         }
                         Err(e) => {
-                            tracing::debug!(error = %e, "email8:mta: rate limiter unavailable — bypass");
+                            tracing::debug!(error = %e, "email8:mta: rate limiter unavailable - bypass");
                         }
                         _ => {}
                     }
@@ -383,7 +383,7 @@ impl Session {
                     return Ok(false);
                 }
                 // Recipient throttle + greylisting (unauthenticated inbound
-                // only — authenticated senders are trusted; design §P4.5).
+                // only - authenticated senders are trusted; design §P4.5).
                 if let (Some(limits), Some(env), false) =
                     (&self.limits, self.env_id, self.authenticated.is_some())
                 {
@@ -422,7 +422,7 @@ impl Session {
                         .await
                     {
                         Ok(true) => {
-                            // Greylisted: temp-fail with the classic 4xx — a
+                            // Greylisted: temp-fail with the classic 4xx - a
                             // legitimate sender retries and passes.
                             self.write_reply(Reply::enhanced(
                                 450,
@@ -453,7 +453,7 @@ impl Session {
                 self.write_reply(Reply::new(354, "Start mail input; end with <CRLF>.<CRLF>"))
                     .await?;
                 // Plain DATA (RFC 5321 §4.1.1.4): switch the receiver to
-                // data mode — it accumulates dot-unstuffed body lines and
+                // data mode - it accumulates dot-unstuffed body lines and
                 // emits them as a DataChunk ending when the lone `.`
                 // terminator is stripped. The session finalizes on that
                 // final chunk (bdat_last marker).
@@ -508,7 +508,7 @@ impl Session {
                         // in-place with the platform PQ-TLS acceptor.
                         if self.swap_stream_tls(&upgrader).await {
                             self.starttls_taken = true;
-                            // RFC 3207 §4: the session state resets —
+                            // RFC 3207 §4: the session state resets -
                             // EHLO must restart; MAIL/RCPT reset.
                             self.mail_from = None;
                             self.rcpts.clear();
@@ -624,7 +624,7 @@ impl Session {
         self.data_buffer.extend_from_slice(&data);
         // The final chunk (DATA terminator or BDAT LAST) finalizes the
         // message. A data-mode terminator with an empty body still emits
-        // one empty final DataChunk — which must finalize too.
+        // one empty final DataChunk - which must finalize too.
         if self.bdat_last {
             self.bdat_last = false;
             let reply = self.finalize_message().await?;
@@ -635,7 +635,7 @@ impl Session {
 
     /// Persist the collected message: inbound pipeline (SPF/DKIM/DMARC/
     /// spam gate/Received headers) → DKIM sign at queue time → blob →
-    /// Storage, queue rows → DB — the single enqueue path shared with
+    /// Storage, queue rows → DB - the single enqueue path shared with
     /// the JMAP submit API.
     async fn finalize_message(&mut self) -> std::io::Result<Reply> {
         let raw = std::mem::take(&mut self.data_buffer);
@@ -646,7 +646,7 @@ impl Session {
         }
         // Tenant env: AUTH binds it for submissions; inbound MX traffic
         // resolves it from the first local recipient's domain via the
-        // `email8.domains` registry (multi-tenant MX — design §2.2).
+        // `email8.domains` registry (multi-tenant MX - design §2.2).
         let env_id = match self
             .authenticated
             .as_ref()
@@ -698,13 +698,13 @@ impl Session {
             .client_ip
             .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
         let helo = self.helo.clone().unwrap_or_default();
-        // Story 5.2 — resolve the tenant env (AUTH token or the MX
+        // Story 5.2 - resolve the tenant env (AUTH token or the MX
         // recipient domain) and load its configured DNSBL zones.
         let from_domain = mail_from
             .rsplit_once('@')
             .map(|(_, d)| d.to_ascii_lowercase());
         let reply_to_domain = None; // parsed from headers in pipeline P2
-                                    // Story 5.2 — resolve the tenant env (AUTH token or the MX
+                                    // Story 5.2 - resolve the tenant env (AUTH token or the MX
                                     // recipient domain) and load its configured DNSBL zones. The
                                     // zone Vec lives to the end of the function (the gate borrows it).
         let dnsbl_zones = match (self.dnsbl_zones.clone(), self.env_id) {
@@ -749,7 +749,7 @@ impl Session {
         let mut processed = out.raw;
 
         // DMARC aggregate recording (RFC 7489 §7.2) + inbound external
-        // report classification (DMARC rua / TLS-RPT / ARF) — inbound
+        // report classification (DMARC rua / TLS-RPT / ARF) - inbound
         // MX traffic only; authenticated submissions are our own mail.
         if !authenticated {
             let from_domain = mail_from
@@ -769,7 +769,7 @@ impl Session {
             crate::reports::record_external_report(&self.pool, &env_id, &raw, &mail_from).await;
         }
 
-        // DKIM sign at queue time (active keys for the signing domain —
+        // DKIM sign at queue time (active keys for the signing domain -
         // the envelope domain; authenticated senders sign their own mail).
         let signing_domain = mail_from
             .rsplit('@')
@@ -807,7 +807,7 @@ impl Session {
             }
         }
 
-        // Per-recipient spam score rides the queue row (design §2.2 — the
+        // Per-recipient spam score rides the queue row (design §2.2 - the
         // Store's ingest applies junk re-file at ≥50 for local delivery).
         let spam_pct = (!authenticated).then_some(out.spam.score_pct as f32);
         match self

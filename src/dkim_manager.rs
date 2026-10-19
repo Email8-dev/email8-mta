@@ -3,11 +3,11 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! DKIM management — active-key resolution, signing at queue time, and
+//! DKIM management - active-key resolution, signing at queue time, and
 //! the Cron-driven rotation state machine (design §5).
 //!
 //! Private keys are **secret references** (`sentin8-secrets` URI in the
-//! `secret_ref` column) — never plaintext. The `LocalFileSecrets`
+//! `secret_ref` column) - never plaintext. The `LocalFileSecrets`
 //! resolver reads `backend://path` URIs where path is relative to
 //! `SENTIN8_SECRETS_DIR` (dev default `/etc/sentin8/secrets`); the
 //! platform vault backend swaps in via the same trait.
@@ -93,7 +93,7 @@ pub async fn load_active_signers(
     Ok(out)
 }
 
-/// The legacy `sign_chained` header list — Received/AR first, then the
+/// The legacy `sign_chained` header list - Received/AR first, then the
 /// stable set.
 pub const SIGN_HEADERS: &[&str] = &[
     "Received",
@@ -137,7 +137,7 @@ pub fn sign_message(signers: &[ActiveSigner], signing_domain: &str, raw: &[u8]) 
 /// Advance a key's stage. Called by the Cron worker:
 /// - pending → active (after the TXT record confirms published)
 /// - active → retiring (after `rotate_after`)
-/// - retiring → retired (after `retire_after` — unpublish DNS first)
+/// - retiring → retired (after `retire_after` - unpublish DNS first)
 pub async fn advance_rotation(
     pool: &sqlx::PgPool,
     key_id: i64,

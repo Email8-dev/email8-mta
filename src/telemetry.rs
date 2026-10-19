@@ -3,23 +3,23 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Mta observability — audit events (`sentin8.sys_audit_events`, the
+//! Mta observability - audit events (`sentin8.sys_audit_events`, the
 //! platform's Sys-owned table; story 5.8) and metric frames on the shared
 //! MemBus telemetry path (SDD §2.6, story 5.9).
 //!
 //! Audit rows follow the sys handlers' insert shape: action,
 //! target_resource_type/id, actor, correlation, before/after state.
-//! The Mta is machine-driven — the actor is the service identity.
+//! The Mta is machine-driven - the actor is the service identity.
 //!
-//! Metrics (queue depth, delivery latency, spam rates — design §P4.9)
+//! Metrics (queue depth, delivery latency, spam rates - design §P4.9)
 //! publish through `sentin8::shield::stat_emit::emit_metric_event`:
 //! MemBus `stat:telemetry` Pub/Sub, consumed by Stat's worker.
-//! Fire-and-forget, log-only on failure — no stat client, no DCR
+//! Fire-and-forget, log-only on failure - no stat client, no DCR
 //! workload, no cross-service calls.
 
 use uuid::Uuid;
 
-/// Emit one audit row (non-blocking on the request path — failures are
+/// Emit one audit row (non-blocking on the request path - failures are
 /// logged, never surfaced). Actions: `email8_relay_denied`,
 /// `email8_dmarc_rejected`, `email8_spam_discarded`, `email8_auth_failed`,
 /// `email8_admin_mutation`.
@@ -61,7 +61,7 @@ pub async fn audit(
 }
 
 /// The periodic telemetry sweep (queue depth, delivery latency,
-/// spam-rate counters) — spawned at startup, hourly cadence. The shared
+/// spam-rate counters) - spawned at startup, hourly cadence. The shared
 /// emitter is initialized by the shell boot; a disabled emitter makes
 /// each pass a no-op.
 pub fn spawn_telemetry(pool: sqlx::PgPool) {
@@ -82,7 +82,7 @@ pub fn spawn_telemetry(pool: sqlx::PgPool) {
 async fn telemetry_pass(pool: &sqlx::PgPool) -> Result<(), String> {
     use sqlx::Row;
     // Queue depth by recipient status (platform-wide; the stat service
-    // is a global consumer — env tags ride the event payload).
+    // is a global consumer - env tags ride the event payload).
     let rows = sqlx::query(
         "SELECT r.status, COUNT(*) AS n, AVG(EXTRACT(EPOCH FROM (now() - m.created_at))) AS age_s \
          FROM email8.queue_recipients r \

@@ -3,14 +3,14 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Email8:Mta configuration — listener ports, policy defaults, platform URLs.
+//! Email8:Mta configuration - listener ports, policy defaults, platform URLs.
 
 use sentin8::auth::client::{Client as AuthClient, ClientOptions};
 
 /// Raw-TCP listener spec (SMTP/LMTP).
 #[derive(Debug, Clone)]
 pub struct TcpListenerSpec {
-    /// Port to bind (0 = disabled — dev shells often run HTTP only).
+    /// Port to bind (0 = disabled - dev shells often run HTTP only).
     pub port: u16,
     /// `true` = implicit TLS (SMTPS); `false` = plaintext + STARTTLS.
     pub implicit_tls: bool,
@@ -26,13 +26,13 @@ pub struct MtaConfig {
     pub sentin8_bus_url: String,
     pub sentin8_storage_url: String,
     pub store_url: String,
-    /// SMTP submission (587) — authenticated MUAs.
+    /// SMTP submission (587) - authenticated MUAs.
     pub submission: TcpListenerSpec,
-    /// SMTP relay (25) — inbound MX traffic.
+    /// SMTP relay (25) - inbound MX traffic.
     pub smtp: TcpListenerSpec,
     /// SMTPS implicit-TLS relay (465).
     pub smtps: TcpListenerSpec,
-    /// LMTP delivery listener (24) — platform-internal.
+    /// LMTP delivery listener (24) - platform-internal.
     pub lmtp: TcpListenerSpec,
     /// Valkey for rate limits / greylisting / fail2ban.
     pub valkey_url: String,

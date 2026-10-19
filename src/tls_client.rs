@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Outbound SMTP TLS client (story 3.3 outbound wrap) + DANE TLSA
-//! verification (story 3.6) — RFC 7671/7672.
+//! verification (story 3.6) - RFC 7671/7672.
 //!
 //! Trust model (MTA-to-MTA is not web-PKI):
 //! - **DANE (EE mode, TLSA 3 1 x / 3 0 x)**: the receiver's TLSA record
@@ -78,7 +78,7 @@ impl TlsaRecord {
         use sha2::Digest;
         let candidate: Vec<u8> = match self.selector {
             0 => der.to_vec(), // full cert
-            _ => spki_of(der), // SPKI — best-effort extraction
+            _ => spki_of(der), // SPKI - best-effort extraction
         };
         let ok = match self.matching {
             0 => candidate == self.association,
@@ -91,7 +91,7 @@ impl TlsaRecord {
 
 /// Extract the SubjectPublicKeyInfo DER from a certificate (the
 /// SPKI selector). Full ASN.1 parsing needs the x509 layer (platform
-/// G3); until then selector=1 matches against an empty candidate —
+/// G3); until then selector=1 matches against an empty candidate -
 /// i.e. it never matches, so DANE publishers should use selector=0
 /// (full-cert association, the mode the tests exercise). This fails
 /// CLOSED: a selector-1 record can only be satisfied once SPKI
@@ -103,9 +103,9 @@ fn spki_of(_der: &[u8]) -> Vec<u8> {
 /// DANE policy for one MX host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DaneMode {
-    /// No TLSA records — opportunistic web-PKI TLS, plaintext fallback.
+    /// No TLSA records - opportunistic web-PKI TLS, plaintext fallback.
     Opportunistic,
-    /// TLSA present — verification against the records; failure is
+    /// TLSA present - verification against the records; failure is
     /// temp-fail (EE mode) per RFC 7672 §2.2.
     Enforced(Vec<TlsaRecord>),
 }
@@ -207,7 +207,7 @@ impl ServerCertVerifier for DaneVerifier {
         // at config time; this fallback trusts the platform PQ root +
         // OS store snapshot taken at build.)
         if self.webpki_roots.is_empty() {
-            // Dev mode: no roots available — accept (opportunistic TLS
+            // Dev mode: no roots available - accept (opportunistic TLS
             // still encrypts; MTA-STS enforce mode gates the downgrade).
             return Ok(ServerCertVerified::assertion());
         }
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn selector1_fails_closed_without_spki_support() {
-        // SPKI extraction is not implemented (G3) — a selector-1 record
+        // SPKI extraction is not implemented (G3) - a selector-1 record
         // must never validate (fail closed), never silently pass.
         let der = vec![0xAA, 0xBB];
         let r = TlsaRecord::parse("3 1 1").unwrap().with_association("aabb");

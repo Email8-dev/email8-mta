@@ -3,16 +3,16 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! FTRL training worker (story 5.4) — bus-triggered spam/ham training
+//! FTRL training worker (story 5.4) - bus-triggered spam/ham training
 //! with Storage-persisted model artifacts and the hot-swap event
 //! `email8:spam:model:updated` (design §P4).
 //!
 //! Training samples arrive as `email8:mail:spam:train` events
-//! `{env_id, account_id, email_id, label}` (label true = spam) — the
+//! `{env_id, account_id, email_id, label}` (label true = spam) - the
 //! Store emits them when a user moves mail to/from Junk. The worker:
 //! 1. drains training samples per env from `spam_training`,
 //! 2. builds features from the stored search corpus + subject,
-//! 3. runs FTRL-Proximal steps per (account, label) — per-recipient
+//! 3. runs FTRL-Proximal steps per (account, label) - per-recipient
 //!    personalization via per-account model artifacts,
 //! 4. serializes the model (serde) into Storage at
 //!    `email8/models/spam/{account}.json`,
@@ -94,7 +94,7 @@ async fn train_account(
     samples: &[(Uuid, bool)],
 ) -> Result<(), String> {
     use sqlx::Row;
-    // PROVRLS-1: the context stamp is transaction-local — run the whole
+    // PROVRLS-1: the context stamp is transaction-local - run the whole
     // training pass (stamp + sample reads + model persist) inside ONE
     // transaction so every query sees the env context.
     let mut tx = pool
@@ -107,7 +107,7 @@ async fn train_account(
         .await
         .map_err(|e| e.to_string())?;
 
-    // Load (or seed) the current model artifact (Storage-only fetch —
+    // Load (or seed) the current model artifact (Storage-only fetch -
     // no DB query, so the pool is fine here; the sample reads below run
     // inside the stamped transaction).
     let mut model = load_model(pool, config, env_id, account_id).await?;
@@ -124,7 +124,7 @@ async fn train_account(
         .await
         .map_err(|e| e.to_string())?;
         let Some(row) = row else {
-            continue; // deleted — skip
+            continue; // deleted - skip
         };
         let subject: Option<String> = row.get("subject");
         let corpus: Option<String> = row.get("search_text");
@@ -164,7 +164,7 @@ async fn train_account(
         .map_err(|e| format!("model artifact store: {e}"))?;
     tx.commit().await.map_err(|e| e.to_string())?;
 
-    // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
+    // Local `email8.outbox` (OUTBOX-EMAIL8 - DBX producer path): the
     // shell's 8b relay drains post-commit; bus dedupes on row id.
     sentin8::bus::outbox::insert_outbox_row_pool(
         pool,
@@ -195,7 +195,7 @@ async fn load_model(
     .await
     .ok();
     // A cold model is the correct fallback for every miss here (no
-    // artifact yet, or the workload certificate still minting — the
+    // artifact yet, or the workload certificate still minting - the
     // next training pass re-attempts).
     if let Some(storage) = storage {
         if let Ok(bytes) = storage

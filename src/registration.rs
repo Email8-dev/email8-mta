@@ -12,7 +12,7 @@ use sentin8::registration::{
 #[cfg(not(test))]
 use utoipa::OpenApi;
 
-/// The Shield text of the declared scope-mirror set — public so the
+/// The Shield text of the declared scope-mirror set - public so the
 /// policy wiring tests (POLICY-7) assert against the REAL seed.
 pub const SCOPE_MIRROR_POLICIES: &str = "permit(principal, action == Action::\"email8:submission:send\", resource) when { principal.scopes.contains(\"email8:submission:send\") };
 permit(principal, action == Action::\"email8:submission:send\", resource) when { principal.scopes.contains(\"email8:mail:receive\") };
@@ -81,13 +81,13 @@ permit(principal, action == Action::\"email8:admin:quotas\", resource) when { pr
 
 /// Default declarative policy set (Sentin8:Policy design §3.2/§3.4,
 /// seeded by `vertical enroll` as `origin='platform'`, `mode='enforced'`):
-/// action-granular scope permits over the LIVE effective scope set — the
+/// action-granular scope permits over the LIVE effective scope set - the
 /// exact mirror of the gates this service's handlers evaluate in step 5
 /// (policy design §4.3). Enforced (decision 2026-09-07): step 5 is the
 /// only gate; shadow is the emergency one-UPDATE rollback lever only.
 const POLICIES: &[PolicySetDecl] = &[PolicySetDecl {
     policy_set_name: "scope-mirror",
-    description: "Action-granular scope permits for email8:mta over the LIVE effective scope set (policy design §3.1d). Enforced (decision 2026-09-07) — step 5 is the only gate.",
+    description: "Action-granular scope permits for email8:mta over the LIVE effective scope set (policy design §3.1d). Enforced (decision 2026-09-07) - step 5 is the only gate.",
     // Shield text lives in SCOPE_MIRROR_POLICIES (single source).
     policies: SCOPE_MIRROR_POLICIES,
     schema: None,
@@ -95,14 +95,14 @@ const POLICIES: &[PolicySetDecl] = &[PolicySetDecl {
     default_enabled: true,
 }];
 
-/// Default ReBAC relation tuples (design §3.1c) — none declared by this
+/// Default ReBAC relation tuples (design §3.1c) - none declared by this
 /// service today; env admins author their own graph (delegate /
 /// shared-mailbox edges) via the relations admin API.
 const RELATIONS: &[RelationDecl] = &[];
 
 /// M2M workload declarations (CERTFREE-4V): the `email8:mta` workload
 /// row drives `vertical enroll`'s Valkey ACL-user provisioning (the CN
-/// `m2m-email8:mta` maps to the ACL user of the same name — group
+/// `m2m-email8:mta` maps to the ACL user of the same name - group
 /// DESIGN.md §3.1, without which the MTA's GLIDE rate-limit connections
 /// can never connect) and carries the scopes Store's internal-data-API
 /// gate checks for SMTP ingestion.
@@ -110,7 +110,7 @@ const M2M_GRANTS: &[M2mGrant] = &[
     M2mGrant {
         workload: "email8:mta",
         scopes: &[
-            // The outbox relay's produce scope (OUTBOX-EMAIL8 — DBX
+            // The outbox relay's produce scope (OUTBOX-EMAIL8 - DBX
             // producer path): the shell's 8b relay presents this
             // workload's cert to Bus `POST /v1/produce`.
             "sentin8:bus:produce",
@@ -120,14 +120,14 @@ const M2M_GRANTS: &[M2mGrant] = &[
         ],
     },
     M2mGrant {
-        // Shield hot-reload consumer (BUSPOLICY-1 — see email8-access).
+        // Shield hot-reload consumer (BUSPOLICY-1 - see email8-access).
         workload: "email8:mta-policy",
         scopes: &["sentin8:bus:consume", "sentin8:stat:measure"],
     },
     M2mGrant {
         // Audit-journal pusher's sys-ingest scope (AUDJOUR-1): the shell's
         // boot-8c pusher presents the `mta-audit` certificate to Sys
-        // `POST /v1/audit` — this grant row is what makes the workload
+        // `POST /v1/audit` - this grant row is what makes the workload
         // enrollable (the BUSPOLICY-1 class: an undeclared cert mints but
         // can never be authorized).
         workload: "mta-audit",
@@ -266,13 +266,13 @@ const ADMIN_UI_PAGES: &[AdminUiPage] = &[
 const SQL_1_INIT: &str = include_str!("../sql/init.sql");
 
 /// OUTBOX-EMAIL8 migration v3: the per-service leaf-schema outbox
-/// (the DBX producer path — sql/outbox.sql). v1 already applied on live
+/// (the DBX producer path - sql/outbox.sql). v1 already applied on live
 /// DBs; the version bump provisions the outbox without recreation
 /// (greenfield versioning, no migration code).
 const SQL_2_OUTBOX: &str = include_str!("../sql/outbox.sql");
 
 /// AUDJOUR-1 migration v4: the local audit journal in the `mta` leaf
-/// schema (sql/audit.sql) — the 15-column contract of
+/// schema (sql/audit.sql) - the 15-column contract of
 /// `sentin8_audit::audit_journal_sql` (design/sentin8-audit-journal-
 /// provisioning-design.md §2.1). The shell's boot-8c pusher drains it
 /// to Sys `POST /v1/audit`.

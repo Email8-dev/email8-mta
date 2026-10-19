@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Axum server setup for Email8:Mta — HTTP surface + raw-TCP listeners.
+//! Axum server setup for Email8:Mta - HTTP surface + raw-TCP listeners.
 
 use std::sync::Arc;
 
@@ -13,7 +13,7 @@ use crate::config::MtaConfig;
 use crate::submit::QueueWriter;
 
 /// Service state: the service config + the shell `ServiceCore`
-/// (pool + Sentin8:Policy engine + shared admin surface — Phase 28 §3.6).
+/// (pool + Sentin8:Policy engine + shared admin surface - Phase 28 §3.6).
 /// The engine inside `core.admin` is the SAME instance the step-5 gate
 /// evaluates, so admin writes and request-time decisions agree.
 /// (`ServiceCore` is not `Clone`; `Arc` gives the cheap state clone.)
@@ -36,7 +36,7 @@ pub async fn build_state(core: sentin8::shell::ServiceCore) -> anyhow::Result<Ap
         core,
     };
 
-    // Sentin8:Policy (Phase 28, §4.2b — shell-owned boot): the shell's
+    // Sentin8:Policy (Phase 28, §4.2b - shell-owned boot): the shell's
     // boot step 8 already booted the engine (refuse-to-start, shared deps,
     // hot-reload consumer, stat emitter). Services only consume it.
 
@@ -47,7 +47,7 @@ pub async fn build_state(core: sentin8::shell::ServiceCore) -> anyhow::Result<Ap
         queue_writer.clone(),
     );
 
-    // Report window close loop (mta design §4 — DMARC/TLS-RPT).
+    // Report window close loop (mta design §4 - DMARC/TLS-RPT).
     crate::reports::spawn(
         state.core.pool.clone(),
         config.clone(),
@@ -55,11 +55,11 @@ pub async fn build_state(core: sentin8::shell::ServiceCore) -> anyhow::Result<Ap
     );
 
     // Metric telemetry (design §P4.9, SDD §2.6): hourly sweeps publishing
-    // frames on the shared MemBus telemetry path — the shell boot
+    // frames on the shared MemBus telemetry path - the shell boot
     // initialized the emitter; a disabled emitter no-ops each pass.
     crate::telemetry::spawn_telemetry(state.core.pool.clone());
 
-    // Raw-TCP protocol listeners — the same dedicated-task pattern as
+    // Raw-TCP protocol listeners - the same dedicated-task pattern as
     // exchange8-gateway's FIX listeners. Port 0 = OS-ephemeral bind (the
     // Gate owns the well-known ports; each instance publishes its actual
     // listener map to Valkey for gate discovery). An explicit env-pinned
@@ -138,7 +138,7 @@ pub async fn build_state(core: sentin8::shell::ServiceCore) -> anyhow::Result<Ap
 
 /// Bind one raw-TCP protocol listener and serve sessions on it.
 /// Returns the bound listener(s) for the registry publisher (empty when
-/// the spec's port is 0 AND no ephemeral bind was requested — an env of
+/// the spec's port is 0 AND no ephemeral bind was requested - an env of
 /// "0" now means OS-ephemeral, not disabled; disabling requires a
 /// negative env which the parser rejects, so raw listeners are always on).
 async fn spawn_tcp_listener(
@@ -156,22 +156,22 @@ async fn spawn_tcp_listener(
     // STARTTLS upgrader (platform story 0.1): built from the platform
     // TLS cert resolver when provisioning succeeds; dev shells without
     // certs keep `starttls: None` (the command is answered but the
-    // swap is unavailable — logged).
+    // swap is unavailable - logged).
     let starttls = build_starttls_upgrader().await;
     let cfg = config.clone();
     let q = queue.clone();
     let pool = pool.clone();
     let engine = engine.clone();
-    // Valkey rate/greylist/fail2ban handles (design §6) — one shared
+    // Valkey rate/greylist/fail2ban handles (design §6) - one shared
     // connection manager per listener; unavailable Valkey degrades the
     // session to no limits.
     let limits = crate::valkey_limits::ValkeyLimits::connect(&cfg.valkey_url)
         .await
         .ok();
     if limits.is_none() {
-        tracing::warn!(url = %cfg.valkey_url, "email8:mta: valkey unavailable — rate limits/greylisting disabled");
+        tracing::warn!(url = %cfg.valkey_url, "email8:mta: valkey unavailable - rate limits/greylisting disabled");
     }
-    // Story 5.2 — per-env DNSBL zone cache shared across sessions.
+    // Story 5.2 - per-env DNSBL zone cache shared across sessions.
     let dnsbl_zones = crate::dnsbl_config::DnsblZoneCache::new(pool.clone());
     tokio::spawn(async move {
         tracing::info!(
@@ -233,7 +233,7 @@ pub fn routes(router: axum::Router<AppState>) -> axum::Router<AppState> {
             "/v1/admin/{*page}",
             post(crate::admin::admin_data).get(crate::admin::get_admin_ui),
         )
-        // ── Sentin8:Policy admin API (Phase 28 §3.6 — shared
+        // ── Sentin8:Policy admin API (Phase 28 §3.6 - shared
         // implementation; handlers generic over this state via
         // HasPolicyAdmin).
         .route(
@@ -292,7 +292,7 @@ impl sentin8::shield::admin::HasPolicyAdmin for AppState {
 
 /// Build the STARTTLS upgrader from the platform TLS cert resolver
 /// (platform story 0.1). Returns None in dev shells where cert
-/// provisioning is unavailable — STARTTLS is then answered-but-not-
+/// provisioning is unavailable - STARTTLS is then answered-but-not-
 /// wrapped and the gap is logged once per listener.
 async fn build_starttls_upgrader() -> Option<crate::smtp_session::StartTlsUpgrader> {
     // The platform resolver loads Acme certs from the DB cache; on
@@ -301,7 +301,7 @@ async fn build_starttls_upgrader() -> Option<crate::smtp_session::StartTlsUpgrad
         .build()
         .await
         .map_err(|e| {
-            tracing::warn!(error = %e, "email8:mta: platform TLS unavailable — STARTTLS unwrapped (dev mode)");
+            tracing::warn!(error = %e, "email8:mta: platform TLS unavailable - STARTTLS unwrapped (dev mode)");
         })
         .ok()?;
     // A probe listener on an ephemeral port is the platform-approved

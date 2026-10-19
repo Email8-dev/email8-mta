@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 /// A lazily-connected Valkey client (GLIDE over the Valkey TLS plane,
-/// presenting the MTA's `email8:mta` workload certificate identity —
+/// presenting the MTA's `email8:mta` workload certificate identity -
 /// platform group DESIGN.md §3.1).
 #[derive(Clone)]
 pub struct ValkeyLimits {
@@ -53,7 +53,7 @@ impl ThrottleKind {
 }
 
 impl ValkeyLimits {
-    /// Connect via the platform factory (URL form `valkeys://host:port` —
+    /// Connect via the platform factory (URL form `valkeys://host:port` -
     /// the plane is TLS-only; the cert CN maps to the `m2m-email8:mta`
     /// ACL user provisioned by `vertical enroll`).
     ///
@@ -104,7 +104,7 @@ impl ValkeyLimits {
     /// the (ip, sender, rcpt) triple with a `retry_after` TTL. Returns
     /// true when the message should be temp-rejected (greylisted), false
     /// when the triple has been seen before (within or after the window
-    /// — a legitimate sender retries).
+    /// - a legitimate sender retries).
     pub async fn greylist_defer(
         &self,
         env_id: &Uuid,

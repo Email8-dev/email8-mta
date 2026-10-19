@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Sentin8 Email8:Mta — SMTP/LMTP transfer engine.
+//! Sentin8 Email8:Mta - SMTP/LMTP transfer engine.
 //!
 //! See `email8/design/sentin8-email8-mta-technical-design.md`.
 //!

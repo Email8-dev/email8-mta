@@ -6,11 +6,11 @@
 -- ── Local audit journal (AUDJOUR-1, design/sentin8-audit-journal-provisioning-design.md §2.1) ──
 -- DBX migration v4: the local audit journal in THIS service's leaf schema,
 -- the 15-column contract of `sentin8_audit::audit_journal_sql("mta")`
--- (architecture-principles §6.8 — journal-first audit; the shell's boot
+-- (architecture-principles §6.8 - journal-first audit; the shell's boot
 -- step 8c pusher drains unpushed rows to Sys `POST /v1/audit` and marks
 -- them pushed on 2xx; a Sys outage only delays delivery).
 --
--- Layout: same leaf-schema convention as the outbox (sql/outbox.sql) — the
+-- Layout: same leaf-schema convention as the outbox (sql/outbox.sql) - the
 -- shell's pusher SELECTs `FROM audit_journal` UNQUALIFIED on the service's
 -- main pool, which resolves through the role's search_path
 -- (`mta, email8, public`); domain tables stay in the shared `email8`

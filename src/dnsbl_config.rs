@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Story 5.2 — per-environment DNSBL zone configuration.
+//! Story 5.2 - per-environment DNSBL zone configuration.
 //!
 //! Zones are persisted in `email8.dnsbl_zones` (applied by
 //! `sentin8-cli vertical init` from the store's init.sql) and cached

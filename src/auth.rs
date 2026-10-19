@@ -3,12 +3,12 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! SMTP AUTH — the SASL/token bridge (master design §4.4).
+//! SMTP AUTH - the SASL/token bridge (master design §4.4).
 //!
 //! XOAUTH2/OAUTHBEARER present a Sentin8:Auth bearer token directly;
 //! PLAIN/LOGIN forward credentials to the platform token-exchange endpoint
 //! (bridge mode, config-gated). Passwords are NEVER stored or verified
-//! locally — Email8 has no credential store.
+//! locally - Email8 has no credential store.
 
 use axum::http::HeaderMap;
 
@@ -54,7 +54,7 @@ pub async fn verify_submission_token(
         .await
         .map_err(|(_code, msg)| msg)?;
     // Step-5 policy decision (Phase 28 §4.3): submission authority is
-    // Shield's call over the SASL-authenticated token — the scope-mirror
+    // Shield's call over the SASL-authenticated token - the scope-mirror
     // carries the submission/send + mail/receive permits.
     sentin8::shell::policy::require(
         engine,
@@ -82,7 +82,7 @@ fn bearer_headers(token: &str) -> HeaderMap {
 
 /// Bridge mode: forward PLAIN credentials to Sentin8:Auth's password grant
 /// and receive a scoped token. Disabled unless
-/// `EMAIL8_SASL_BRIDGE=on` — the platform default is OAuth-only.
+/// `EMAIL8_SASL_BRIDGE=on` - the platform default is OAuth-only.
 pub async fn bridge_plain(
     config: &MtaConfig,
     engine: &sentin8::shield::PolicyEngine,

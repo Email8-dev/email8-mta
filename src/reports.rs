@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Aggregate report worker — DMARC (RFC 7489 §7.2) and TLS-RPT
+//! Aggregate report worker - DMARC (RFC 7489 §7.2) and TLS-RPT
 //! (RFC 8460) report assembly + outbound submission.
 //!
 //! The pipeline records per-message evaluation outcomes into
@@ -42,7 +42,7 @@ pub fn spawn(pool: sqlx::PgPool, config: Arc<MtaConfig>, queue: Arc<QueueWriter>
 }
 
 /// Record one DMARC evaluation outcome into the current 24h aggregate
-/// window for the From domain (RFC 7489 §7.2 — the MTA aggregates each
+/// window for the From domain (RFC 7489 §7.2 - the MTA aggregates each
 /// inbound message into policy_domain/day rows). Called from the SMTP
 /// session finalize path; failures never block acceptance.
 pub async fn record_dmarc_result(
@@ -57,7 +57,7 @@ pub async fn record_dmarc_result(
         return;
     }
     // PROVRLS-1: stamp + write share ONE transaction (the context is
-    // transaction-local — on the raw pool each statement lands on a
+    // transaction-local - on the raw pool each statement lands on a
     // different connection and the stamp never applies to the INSERT).
     let Ok(mut tx) = pool.begin().await else {
         return;

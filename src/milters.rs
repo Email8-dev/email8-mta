@@ -3,14 +3,14 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Milter client (protocol v2/v6) + MTA HTTP hooks (JSON contract) —
+//! Milter client (protocol v2/v6) + MTA HTTP hooks (JSON contract) -
 //! story 4.11, design §2.2 stage chain.
 //!
 //! The legacy milter protocol is a length-prefixed macro/command
 //! exchange over a socket: the MTA sends SMFIC_* commands per stage
 //! with macros, the milter responds SMFIR_* (continue / reject /
 //! tempfail / discard / add-header …). This module implements the
-//! client side — connect, negotiate options, run the stage chain,
+//! client side - connect, negotiate options, run the stage chain,
 //! apply responses.
 //!
 //! HTTP hooks (the `http` hook_kind rows in `mta_hooks`) use a
@@ -26,7 +26,7 @@ use crate::config::MtaConfig;
 
 // ── Milter wire protocol (sendmail 8 milter v2/v6) ──────────────────────
 
-/// Milter command codes (SMFIC_*) — the subset the client sends.
+/// Milter command codes (SMFIC_*) - the subset the client sends.
 mod smfic {
     pub const BODY: u8 = b'B'; // SMFIC_BODY
     pub const CONNECT: u8 = b'C'; // SMFIC_CONNECT
@@ -331,7 +331,7 @@ pub async fn run_http_hooks(
         };
         outcome = combine(outcome, this);
         if matches!(outcome, MilterAction::Reject(_) | MilterAction::Discard) {
-            break; // terminal — no further hooks
+            break; // terminal - no further hooks
         }
     }
     Ok(outcome)

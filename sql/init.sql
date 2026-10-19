@@ -3,11 +3,11 @@
 -- SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 -- SPDX-License-Identifier: Apache-2.0
 
--- Email8:Mta — outbound queue, recipients, due events, DKIM keys, reports.
+-- Email8:Mta - outbound queue, recipients, due events, DKIM keys, reports.
 --
 -- The queue replaces the legacy KV `e`/`q` subspaces: message rows +
 -- normalized recipient rows + a due-event index scanned by the manager
--- loop. Claiming uses `FOR UPDATE SKIP LOCKED` — crash-safe,
+-- loop. Claiming uses `FOR UPDATE SKIP LOCKED` - crash-safe,
 -- multi-instance by construction (mta design §3.1).
 --
 -- Design: email8/design/sentin8-email8-mta-technical-design.md.
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS email8.dkim_keys (
     algorithm       TEXT NOT NULL DEFAULT 'rsa-sha256',
     stage          TEXT NOT NULL DEFAULT 'pending'
                     CHECK (stage IN ('pending', 'active', 'retiring', 'retired')),
-    secret_ref      TEXT NOT NULL,                -- sentin8-secrets:// reference — NEVER the key
+    secret_ref      TEXT NOT NULL,                -- sentin8-secrets:// reference - NEVER the key
     next_transition TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (env_id, domain, selector)
@@ -215,7 +215,7 @@ EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'mta grants skip: %', SQLERRM;
 END $$;
 -- ── Local outbox (OUTBOX-EMAIL8, architecture-principles §6.7) ──────────
--- NOTE: this block ALSO ships as migration v2 in registration.rs — the
+-- NOTE: this block ALSO ships as migration v2 in registration.rs - the
 -- live DB already has v1 applied; the version bump provisions the
 -- outbox without recreation (greenfield versioning, no migration code).
 CREATE TABLE IF NOT EXISTS email8.outbox (
@@ -261,7 +261,7 @@ CREATE TRIGGER outbox_notify_trigger
     FOR EACH ROW
     EXECUTE FUNCTION email8.notify_outbox_changed();
 
--- The relay's drain calls sentin8_outbox_unrelayed_envs() (outbox crate) —
+-- The relay's drain calls sentin8_outbox_unrelayed_envs() (outbox crate) -
 -- a SECURITY DEFINER helper that must exist in the DB; email8's init
 -- creates it over the shared table (IF NOT EXISTS from any service's
 -- init keeps the pair idempotent).

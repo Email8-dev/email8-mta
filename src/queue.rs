@@ -3,12 +3,12 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 // SPDX-License-Identifier: Apache-2.0
 
-//! Outbound queue manager — the delivery loop.
+//! Outbound queue manager - the delivery loop.
 //!
 //! Claims due events with `FOR UPDATE SKIP LOCKED` (crash-safe,
 //! multi-instance by construction), dispatches a delivery worker per
 //! message, and reschedules retry/notify/expiry events from the schedule
-//! math in `email8::contracts::QueueName` (mta design §3.1–3.3).
+//! math in `email8::contracts::QueueName` (mta design §3.1-3.3).
 //!
 //! Local recipients deliver through Store's ingest API; remote
 //! recipients deliver through the outbound client (MX → STARTTLS →
@@ -44,7 +44,7 @@ async fn run(pool: sqlx::PgPool, config: Arc<MtaConfig>, queue: Arc<QueueWriter>
         match claim_due_batch(&pool).await {
             Ok(events) if !events.is_empty() => {
                 for ev in events {
-                    // Dispatch each claim as its own task — the claim row
+                    // Dispatch each claim as its own task - the claim row
                     // already holds the event (SKIP LOCKED ownership).
                     let pool = pool.clone();
                     let config = config.clone();
@@ -258,7 +258,7 @@ async fn deliver_local(
     source_flags: i32,
     spam_pct: Option<f32>,
 ) -> anyhow::Result<()> {
-    // Internal data API auth: certificate identity (CERTFREE-4V) — the
+    // Internal data API auth: certificate identity (CERTFREE-4V) - the
     // MTA's own `email8:mta` workload certificate presents in the TLS
     // handshake; Store's TLS layer authenticates it and its internal-API
     // gate resolves the workload against the registry map. No bearer
@@ -278,7 +278,7 @@ async fn deliver_local(
         .send()
         .await?;
     let resolve: serde_json::Value = resolve_resp.error_for_status()?.json().await?;
-    // The reply is the tagged `ResolvedAddress` enum — only the
+    // The reply is the tagged `ResolvedAddress` enum - only the
     // `account` variant carries a local principal (UUID, not the legacy
     // numeric id).
     if resolve.get("kind").and_then(|v| v.as_str()) != Some("account") {
@@ -290,7 +290,7 @@ async fn deliver_local(
         .and_then(|s| s.parse().ok())
         .ok_or_else(|| anyhow::anyhow!("resolve reply missing account_id"))?;
 
-    // 2. Ingest — the spam score rides through so the Store's ingest
+    // 2. Ingest - the spam score rides through so the Store's ingest
     // applies the junk re-file at ≥50 and ham overrides (design §2.3).
     let ingest_url = format!(
         "{}/v1/internal/ingest",
@@ -366,7 +366,7 @@ async fn deliver_remote(
             }
             Err(_) => continue,
         };
-        // Dialogue. DANE is looked up per MX host (RFC 7672 — the
+        // Dialogue. DANE is looked up per MX host (RFC 7672 - the
         // records live under `_25._tcp.{host}`), then STARTTLS is
         // negotiated inside the dialogue with the DANE-aware verifier.
         let dane = crate::tls_client::dane_lookup(dns.as_ref(), &host.host, 25).await;
@@ -404,7 +404,7 @@ where
 {
     let hostname = std::env::var("EMAIL8_HOSTNAME").unwrap_or_else(|_| "localhost".into());
     let (_, caps) = client.handshake(&hostname).await?;
-    // STARTTLS when offered (TLS wrap lands with the platform gap G1 —
+    // STARTTLS when offered (TLS wrap lands with the platform gap G1 -
     // the session proceeds plaintext only in insecure dev mode).
     if caps.iter().any(|c| c.starts_with("STARTTLS")) {
         client.starttls_ready(&caps).await?;
@@ -524,7 +524,7 @@ fn extract_status_code(reply: &str) -> String {
 }
 
 /// Mark a recipient terminal (completed / permanent_failure) and release
-/// the quota buckets it consumed at enqueue time (design §6 — decrement
+/// the quota buckets it consumed at enqueue time (design §6 - decrement
 /// at terminal recipient state).
 async fn mark_terminal(
     pool: &sqlx::PgPool,
@@ -738,7 +738,7 @@ async fn emit_event(
     event_type: &str,
     payload: serde_json::Value,
 ) {
-    // Local `email8.outbox` (OUTBOX-EMAIL8 — DBX producer path): the
+    // Local `email8.outbox` (OUTBOX-EMAIL8 - DBX producer path): the
     // shell's 8b relay drains post-commit; bus dedupes on row id.
     if let Err(e) =
         sentin8::bus::outbox::insert_outbox_row_pool(pool, env_id, "email8", event_type, &payload)
