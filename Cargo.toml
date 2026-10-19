@@ -20,13 +20,12 @@ path = "src/main.rs"
 name = "email8_mta_server"
 path = "src/lib.rs"
 
-
 [dependencies]
 # Platform SDK pin (RS 2.3) - the only cross-repo dependency; carries the
 # entire shared library workspace behind the `sentin8` facade.
-sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.6" }
+sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.7" }
 # email8 namespace facade pin - carries this vertical's contracts/clients.
-email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.6" }
+email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.7" }
 
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
@@ -60,6 +59,6 @@ blake3 = "1"
 base64 = "0.22"
 async-trait = "0.1"
 memchr = "2"
-sentin8-stat-sdk = { git = "https://github.com/Sentin8/sentin8-stat", tag = "stat-sdk-v0.6.5" }
-sentin8-storage-sdk = { git = "https://github.com/Sentin8/sentin8-storage", tag = "storage-sdk-v0.3.0" }
-sentin8-secrets-sdk = { git = "https://github.com/Sentin8/sentin8-secrets", tag = "secrets-sdk-v0.3.0" }
+sentin8-stat-sdk = { git = "https://github.com/Sentin8/sentin8-stat", tag = "stat-sdk-v0.6.6" }
+sentin8-storage-sdk = { git = "https://github.com/Sentin8/sentin8-storage", tag = "storage-sdk-v0.3.1" }
+sentin8-secrets-sdk = { git = "https://github.com/Sentin8/sentin8-secrets", tag = "secrets-sdk-v0.4.0" }

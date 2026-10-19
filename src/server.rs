@@ -323,7 +323,7 @@ async fn build_starttls_upgrader() -> Option<crate::smtp_session::StartTlsUpgrad
     get,
     path = "/v1/health",
     responses(
-        (status = 200, description = "Liveness (version, build)", body = serde_json::Value),
+        (status = 200, description = "Liveness (version, build)", body = sentin8::middleware::health::LiveHealth),
     ),
     security(),
     tag = "meta",

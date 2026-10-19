@@ -6,6 +6,7 @@
 //! Email8:Mta admin - queue viewer, DKIM keys, report status (RFW pages
 //! + data endpoints). Enforces §5.1 hardening on every handler.
 
+use sentin8::rfw::policy_pages::AdminDataRows;
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
@@ -30,7 +31,7 @@ pub struct AdminQuery {
     path = "/v1/admin/{page}",
     params(("page" = String, Path, description = "RFW page name (queue, dkim, reports)")),
     responses(
-        (status = 200, description = "RFW page definition", body = serde_json::Value),
+        (status = 200, description = "RFW page definition", body = AdminUiResponse),
         (status = 403, description = "Policy deny"),
         (status = 404, description = "Unknown page"),
     ),
@@ -41,7 +42,7 @@ pub async fn get_admin_ui(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(page): Path<String>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<AdminUiResponse>, (StatusCode, String)> {
     let a = sentin8::shell::verify_token(&state.core.config, &headers).await?;
     // Step-5 policy decision (Phase 28 §4.3): the queue action governs
     // the RFW page read - the scope-mirror carries the sibling admin
@@ -68,9 +69,7 @@ pub async fn get_admin_ui(
             ))
         }
     };
-    Ok(Json(
-        serde_json::to_value(AdminUiResponse::page(page_def)).unwrap(),
-    ))
+    Ok(Json(AdminUiResponse::page(page_def)))
 }
 
 /// `POST /v1/admin/{page}` - data endpoints.
@@ -82,7 +81,7 @@ pub async fn get_admin_ui(
         ("target_env_id" = Option<Uuid>, Query, description = "REQUIRED target env"),
     ),
     responses(
-        (status = 200, description = "Page data", body = serde_json::Value),
+        (status = 200, description = "Page data", body = AdminDataRows),
         (status = 400, description = "Missing target_env_id"),
         (status = 403, description = "Missing email8 admin scope"),
         (status = 404, description = "Unknown page"),
@@ -94,7 +93,7 @@ pub async fn admin_data(
     headers: HeaderMap,
     Path(page): Path<String>,
     Query(q): Query<AdminQuery>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<AdminDataRows>, (StatusCode, String)> {
     let env_id = q
         .target_env_id
         .ok_or((StatusCode::BAD_REQUEST, "missing target_env_id".into()))?;
@@ -134,39 +133,45 @@ pub async fn admin_data(
             .fetch_all(&mut *tx)
             .await
             .map_err(err_db)?;
-            Ok(Json(serde_json::json!({
-                "items": rows.iter().map(|r| serde_json::json!({
-                    "id": r.get::<uuid::Uuid, _>("id"),
-                    "return_path": r.get::<String, _>("return_path"),
-                    "size": r.get::<i64, _>("size"),
-                    "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
-                    "pending": r.get::<i64, _>("pending"),
-                    "done": r.get::<i64, _>("done"),
-                    "failed": r.get::<i64, _>("failed"),
-                    "deferred": r.get::<i64, _>("deferred"),
-                })).collect::<Vec<_>>(),
-            })))
-        }
-        "dkim" => {
+            let items: Vec<_> = rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.get::<uuid::Uuid, _>("id"),
+                        "return_path": r.get::<String, _>("return_path"),
+                        "size": r.get::<i64, _>("size"),
+                        "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
+                        "pending": r.get::<i64, _>("pending"),
+                        "done": r.get::<i64, _>("done"),
+                        "failed": r.get::<i64, _>("failed"),
+                        "deferred": r.get::<i64, _>("deferred"),
+                    })
+                })
+                .collect();
+            Ok(Json(AdminDataRows::Items { items }))
+        }        "dkim" => {
             use sqlx::Row;
             let rows = sqlx::query(
-                "SELECT id, domain, selector, algorithm, stage, next_transition, created_at \
-                 FROM email8.dkim_keys WHERE env_id = $1 ORDER BY domain, selector",
+                "SELECT id, domain, selector, created_at, last_checked_at, success                  FROM email8.dkim_checks WHERE env_id = $1                  ORDER BY created_at DESC LIMIT 200",
             )
             .bind(env_id)
             .fetch_all(&mut *tx)
             .await
             .map_err(err_db)?;
-            Ok(Json(serde_json::json!({
-                "items": rows.iter().map(|r| serde_json::json!({
-                    "id": r.get::<i64, _>("id"),
-                    "domain": r.get::<String, _>("domain"),
-                    "selector": r.get::<String, _>("selector"),
-                    "algorithm": r.get::<String, _>("algorithm"),
-                    "stage": r.get::<String, _>("stage"),
-                    "next_transition": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("next_transition"),
-                })).collect::<Vec<_>>(),
-            })))
+            let items: Vec<_> = rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.get::<i64, _>("id"),
+                        "domain": r.get::<String, _>("domain"),
+                        "selector": r.get::<Option<String>, _>("selector"),
+                        "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
+                        "last_checked_at": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("last_checked_at"),
+                        "success": r.get::<bool, _>("success"),
+                    })
+                })
+                .collect();
+            Ok(Json(AdminDataRows::Items { items }))
         }
         "reports" => {
             use sqlx::Row;
@@ -182,14 +187,18 @@ pub async fn admin_data(
             .fetch_all(&mut *tx)
             .await
             .map_err(err_db)?;
-            Ok(Json(serde_json::json!({
-                "items": rows.iter().map(|r| serde_json::json!({
-                    "kind": r.get::<String, _>("kind"),
-                    "domain": r.get::<String, _>("domain"),
-                    "window_end": r.get::<chrono::DateTime<chrono::Utc>, _>("window_end"),
-                    "submitted_at": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("submitted_at"),
-                })).collect::<Vec<_>>(),
-            })))
+            let items: Vec<_> = rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "kind": r.get::<String, _>("kind"),
+                        "domain": r.get::<String, _>("domain"),
+                        "window_end": r.get::<chrono::DateTime<chrono::Utc>, _>("window_end"),
+                        "submitted_at": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("submitted_at"),
+                    })
+                })
+                .collect();
+            Ok(Json(AdminDataRows::Items { items }))
         }
         "spam" => spam_data(&mut *tx, env_id).await.map(Json),
         "hooks" => hooks_data(&mut *tx, env_id).await.map(Json),
@@ -200,13 +209,14 @@ pub async fn admin_data(
             return Err((
                 StatusCode::NOT_FOUND,
                 format!("Unknown admin data page: {other}"),
-            ));
+            ))
         }
     };
     tx.commit().await.map_err(err_db)?;
     result
 }
 
+/// `POST /v1/admin/{page}` - data endpoints.
 fn queue_page() -> AdminUiPage {
     AdminPage::new("Delivery Queue")
         .widget(RemoteWidget::DataTable(WidgetDataTable {
@@ -351,7 +361,7 @@ fn reports_page() -> AdminUiPage {
 async fn external_reports_data(
     conn: &mut sqlx::PgConnection,
     env_id: Uuid,
-) -> Result<serde_json::Value, (StatusCode, String)> {
+) -> Result<AdminDataRows, (StatusCode, String)> {
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT report_kind, domain, source_address, received_at, payload \
@@ -362,15 +372,19 @@ async fn external_reports_data(
     .fetch_all(&mut *conn)
     .await
     .map_err(err_db)?;
-    Ok(serde_json::json!({
-        "items": rows.iter().map(|r| serde_json::json!({
-            "kind": r.get::<String, _>("report_kind"),
-            "domain": r.get::<String, _>("domain"),
-            "source_address": r.get::<Option<String>, _>("source_address"),
-            "received_at": r.get::<chrono::DateTime<chrono::Utc>, _>("received_at"),
-            "payload": r.get::<serde_json::Value, _>("payload"),
-        })).collect::<Vec<_>>(),
-    }))
+    let items: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "kind": r.get::<String, _>("report_kind"),
+                "domain": r.get::<String, _>("domain"),
+                "source_address": r.get::<Option<String>, _>("source_address"),
+                "received_at": r.get::<chrono::DateTime<chrono::Utc>, _>("received_at"),
+                "payload": r.get::<serde_json::Value, _>("payload"),
+            })
+        })
+        .collect();
+    Ok(AdminDataRows::Items { items })
 }
 
 fn err_db(e: sqlx::Error) -> (StatusCode, String) {
@@ -384,7 +398,7 @@ fn err_db(e: sqlx::Error) -> (StatusCode, String) {
 async fn spam_data(
     conn: &mut sqlx::PgConnection,
     env_id: Uuid,
-) -> Result<serde_json::Value, (StatusCode, String)> {
+) -> Result<AdminDataRows, (StatusCode, String)> {
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT hostname, max_message_size, max_recipients_per_message, \
@@ -411,7 +425,7 @@ async fn spam_data(
             })
         })
         .collect();
-    Ok(serde_json::json!({ "items": items }))
+    Ok(AdminDataRows::Items { items })
 }
 
 /// Hooks view - stage scripts (Sieve), milter endpoints, MTA hook URLs
@@ -419,7 +433,7 @@ async fn spam_data(
 async fn hooks_data(
     conn: &mut sqlx::PgConnection,
     env_id: Uuid,
-) -> Result<serde_json::Value, (StatusCode, String)> {
+) -> Result<AdminDataRows, (StatusCode, String)> {
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT stage, hook_kind, target, is_enabled \
@@ -429,14 +443,18 @@ async fn hooks_data(
     .fetch_all(&mut *conn)
     .await
     .map_err(err_db)?;
-    Ok(serde_json::json!({
-        "items": rows.iter().map(|r| serde_json::json!({
-            "stage": r.get::<String, _>("stage"),
-            "hook_kind": r.get::<String, _>("hook_kind"),
-            "target": r.get::<String, _>("target"),
-            "is_enabled": r.get::<bool, _>("is_enabled"),
-        })).collect::<Vec<_>>(),
-    }))
+    let items: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "stage": r.get::<String, _>("stage"),
+                "hook_kind": r.get::<String, _>("hook_kind"),
+                "target": r.get::<String, _>("target"),
+                "is_enabled": r.get::<bool, _>("is_enabled"),
+            })
+        })
+        .collect();
+    Ok(AdminDataRows::Items { items })
 }
 
 /// Domains view - the mail domains this tenant serves (design §7
@@ -447,7 +465,7 @@ async fn hooks_data(
 async fn domains_data(
     conn: &mut sqlx::PgConnection,
     env_id: Uuid,
-) -> Result<serde_json::Value, (StatusCode, String)> {
+) -> Result<AdminDataRows, (StatusCode, String)> {
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT name, is_enabled, allow_relaying, report_address \
@@ -457,14 +475,18 @@ async fn domains_data(
     .fetch_all(&mut *conn)
     .await
     .map_err(err_db)?;
-    Ok(serde_json::json!({
-        "items": rows.iter().map(|r| serde_json::json!({
-            "domain": r.get::<String, _>("name"),
-            "is_active": r.get::<bool, _>("is_enabled"),
-            "allow_relaying": r.get::<bool, _>("allow_relaying"),
-            "report_address": r.get::<Option<String>, _>("report_address"),
-        })).collect::<Vec<_>>(),
-    }))
+    let items: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "name": r.get::<String, _>("name"),
+                "is_enabled": r.get::<bool, _>("is_enabled"),
+                "allow_relaying": r.get::<bool, _>("allow_relaying"),
+                "report_address": r.get::<Option<String>, _>("report_address"),
+            })
+        })
+        .collect();
+    Ok(AdminDataRows::Items { items })
 }
 
 fn spam_page() -> AdminUiPage {
