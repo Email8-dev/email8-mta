@@ -25,7 +25,7 @@ path = "src/lib.rs"
 # entire shared library workspace behind the `sentin8` facade.
 sentin8 = { git = "https://github.com/Sentin8/sentin8-sdk", tag = "sdk-v0.6.7" }
 # email8 namespace facade pin - carries this vertical's contracts/clients.
-email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.7" }
+email8 = { git = "https://github.com/Email8-dev/email8-sdk", tag = "email8-v0.5.8" }
 
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
