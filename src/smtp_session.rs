@@ -785,8 +785,7 @@ impl Session {
                     .bind(env_id)
                     .execute(&mut *tx)
                     .await;
-                if let Ok(signers) =
-                    crate::dkim_manager::load_active_signers(&mut tx, env_id).await
+                if let Ok(signers) = crate::dkim_manager::load_active_signers(&mut tx, env_id).await
                 {
                     let _ = tx.commit().await;
                     let blocks =

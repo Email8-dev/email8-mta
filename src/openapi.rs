@@ -39,4 +39,5 @@ use utoipa::OpenApi;
         (name = "policy", description = "Shield policy administration (shared surface)"),
         (name = "email8-mta", description = "Sentin8 Email8:Mta - SMTP transfer engine, queue, DKIM, reports"),
     ),
-)]pub struct MtaOpenApi;
+)]
+pub struct MtaOpenApi;

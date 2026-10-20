@@ -6,13 +6,13 @@
 //! Email8:Mta admin - queue viewer, DKIM keys, report status (RFW pages
 //! + data endpoints). Enforces §5.1 hardening on every handler.
 
-use sentin8::rfw::policy_pages::AdminDataRows;
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     Json,
 };
 use sentin8::rfw::page::*;
+use sentin8::rfw::policy_pages::AdminDataRows;
 use sentin8::rfw::response::AdminUiResponse;
 use sentin8::rfw::widget::*;
 use uuid::Uuid;
@@ -149,7 +149,8 @@ pub async fn admin_data(
                 })
                 .collect();
             Ok(Json(AdminDataRows::Items { items }))
-        }        "dkim" => {
+        }
+        "dkim" => {
             use sqlx::Row;
             let rows = sqlx::query(
                 "SELECT id, domain, selector, created_at, last_checked_at, success                  FROM email8.dkim_checks WHERE env_id = $1                  ORDER BY created_at DESC LIMIT 200",
@@ -209,7 +210,7 @@ pub async fn admin_data(
             return Err((
                 StatusCode::NOT_FOUND,
                 format!("Unknown admin data page: {other}"),
-            ))
+            ));
         }
     };
     tx.commit().await.map_err(err_db)?;

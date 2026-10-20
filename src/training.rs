@@ -97,10 +97,7 @@ async fn train_account(
     // PROVRLS-1: the context stamp is transaction-local - run the whole
     // training pass (stamp + sample reads + model persist) inside ONE
     // transaction so every query sees the env context.
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
         .bind(env_id)
         .execute(&mut *tx)
