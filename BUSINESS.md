@@ -235,4 +235,4 @@ driven by DB rows (`email8.spam_training`), not bus events.
 
 ---
 
-**Design attribution:** email8:mta and its underlying concepts were designed by Hamid Jahanzad <Hamid@Jahanzad.com>.
+**Architecture & Design:** email8:mta and its underlying concepts were designed by [Hamid Jahanzad](https://www.linkedin.com/in/hamidjahanzad/).
