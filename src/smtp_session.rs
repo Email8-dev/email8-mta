@@ -777,7 +777,7 @@ impl Session {
             .unwrap_or_default()
             .to_ascii_lowercase();
         if !signing_domain.is_empty() {
-            // PROVRLS-1: stamp + signers SELECT share ONE transaction
+            // stamp + signers SELECT share ONE transaction
             // (the context is transaction-local and evaporates on
             // autocommit).
             if let Ok(mut tx) = self.pool.begin().await {

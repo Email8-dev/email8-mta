@@ -56,7 +56,7 @@ pub async fn record_dmarc_result(
     if from_domain.is_empty() {
         return;
     }
-    // PROVRLS-1: stamp + write share ONE transaction (the context is
+    // stamp + write share ONE transaction (the context is
     // transaction-local - on the raw pool each statement lands on a
     // different connection and the stamp never applies to the INSERT).
     let Ok(mut tx) = pool.begin().await else {
@@ -127,7 +127,7 @@ pub async fn record_external_report(
         .next()
         .unwrap_or_default()
         .to_string();
-    // PROVRLS-1: stamp + write share ONE transaction.
+    // stamp + write share ONE transaction.
     let Ok(mut tx) = pool.begin().await else {
         return;
     };
@@ -178,7 +178,7 @@ async fn close_windows(
         let window_start: chrono::DateTime<chrono::Utc> = row.get("window_start");
         let window_end: chrono::DateTime<chrono::Utc> = row.get("window_end");
         let rows: serde_json::Value = row.get("rows");
-        // PROVRLS-1: stamp + UPDATE share ONE transaction per window.
+        // stamp + UPDATE share ONE transaction per window.
         let Ok(mut tx) = pool.begin().await else {
             continue;
         };
@@ -253,7 +253,7 @@ async fn close_windows(
         let window_start: chrono::DateTime<chrono::Utc> = row.get("window_start");
         let window_end: chrono::DateTime<chrono::Utc> = row.get("window_end");
         let rows: serde_json::Value = row.get("rows");
-        // PROVRLS-1: stamp + UPDATE share ONE transaction per window.
+        // stamp + UPDATE share ONE transaction per window.
         let Ok(mut tx) = pool.begin().await else {
             continue;
         };

@@ -359,7 +359,7 @@ pub async fn load_hooks(
     env_id: &Uuid,
 ) -> Result<(Vec<MilterHook>, Vec<HttpHook>), String> {
     use sqlx::Row;
-    // PROVRLS-1: stamp + SELECT share ONE transaction (the context is
+    // stamp + SELECT share ONE transaction (the context is
     // transaction-local and never applies on the raw pool).
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")

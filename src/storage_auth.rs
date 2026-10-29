@@ -7,7 +7,7 @@
 //! "Service-to-service" row).
 //!
 //! Email8 services call Sentin8:Storage for message blobs. The client is
-//! **certificate-presenting** (CERTFREE-1/4V): every call presents the
+//! **certificate-presenting** (/4V): every call presents the
 //! MTA's own Acme-issued workload certificate (`CN=m2m-email8:mta`) in
 //! the TLS handshake - Storage's TLS layer authenticates it and the
 //! registry map authorizes the scopes. No M2M token exists on this

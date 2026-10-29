@@ -107,7 +107,7 @@ pub async fn admin_data(
     )
     .await?;
 
-    // PROVRLS-1: stamp + queries share ONE transaction (the context is
+    // stamp + queries share ONE transaction (the context is
     // transaction-local and evaporates on autocommit).
     let mut tx = state.pool.begin().await.map_err(err_db)?;
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")

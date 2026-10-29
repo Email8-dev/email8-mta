@@ -94,7 +94,7 @@ async fn train_account(
     samples: &[(Uuid, bool)],
 ) -> Result<(), String> {
     use sqlx::Row;
-    // PROVRLS-1: the context stamp is transaction-local - run the whole
+    // the context stamp is transaction-local - run the whole
     // training pass (stamp + sample reads + model persist) inside ONE
     // transaction so every query sees the env context.
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;

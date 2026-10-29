@@ -3,7 +3,7 @@
 -- SPDX-FileCopyrightText: Copyright Contributors to the Email8:MTA
 -- SPDX-License-Identifier: Apache-2.0
 
--- ── Local audit journal (AUDJOUR-1, design/sentin8-audit-journal-provisioning-design.md §2.1) ──
+-- ── Local audit journal (design/sentin8-audit-journal-provisioning-design.md §2.1) ──
 -- DBX migration v4: the local audit journal in THIS service's leaf schema,
 -- the 15-column contract of `sentin8_audit::audit_journal_sql("mta")`
 -- (architecture-principles §6.8 - journal-first audit; the shell's boot

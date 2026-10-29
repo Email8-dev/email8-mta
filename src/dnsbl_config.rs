@@ -57,7 +57,7 @@ impl DnsblZoneCache {
         }
         let rows: Vec<(String, String, i32)> = match self.pool.begin().await {
             Ok(mut tx) => {
-                // PROVRLS-1: stamp + SELECT share ONE transaction.
+                // stamp + SELECT share ONE transaction.
                 let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
                     .bind(env_id)
                     .execute(&mut *tx)

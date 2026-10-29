@@ -31,7 +31,7 @@ pub async fn audit(
     resource_id: &str,
     details: serde_json::Value,
 ) {
-    // PROVRLS-1: stamp + INSERT share ONE transaction (the context is
+    // stamp + INSERT share ONE transaction (the context is
     // transaction-local and never applies on the raw pool).
     let Ok(mut tx) = pool.begin().await else {
         return;

@@ -120,15 +120,15 @@ const M2M_GRANTS: &[M2mGrant] = &[
         ],
     },
     M2mGrant {
-        // Shield hot-reload consumer (BUSPOLICY-1 - see email8-access).
+        // Shield hot-reload consumer (- see email8-access).
         workload: "email8:mta-policy",
         scopes: &["sentin8:bus:consume", "sentin8:stat:measure"],
     },
     M2mGrant {
-        // Audit-journal pusher's sys-ingest scope (AUDJOUR-1): the shell's
+        // Audit-journal pusher's sys-ingest scope : the shell's
         // boot-8c pusher presents the `mta-audit` certificate to Sys
         // `POST /v1/audit` - this grant row is what makes the workload
-        // enrollable (the BUSPOLICY-1 class: an undeclared cert mints but
+        // enrollable (the class: an undeclared cert mints but
         // can never be authorized).
         workload: "mta-audit",
         scopes: &["sentin8:sys:audit:write"],
@@ -271,7 +271,7 @@ const SQL_1_INIT: &str = include_str!("../sql/init.sql");
 /// (greenfield versioning, no migration code).
 const SQL_2_OUTBOX: &str = include_str!("../sql/outbox.sql");
 
-/// AUDJOUR-1 migration v4: the local audit journal in the `mta` leaf
+/// migration v4: the local audit journal in the `mta` leaf
 /// schema (sql/audit.sql) - the 15-column contract of
 /// `sentin8_audit::audit_journal_sql` (design/sentin8-audit-journal-
 /// provisioning-design.md §2.1). The shell's boot-8c pusher drains it
