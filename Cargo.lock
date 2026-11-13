@@ -1420,8 +1420,8 @@ dependencies = [
 
 [[package]]
 name = "email8"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "email8-contracts",
  "email8-dav-proto",
@@ -1440,8 +1440,8 @@ dependencies = [
 
 [[package]]
 name = "email8-contracts"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "chrono",
  "sentin8 0.1.0",
@@ -1454,16 +1454,16 @@ dependencies = [
 
 [[package]]
 name = "email8-dav-proto"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "chrono",
 ]
 
 [[package]]
 name = "email8-gate-contracts"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "sentin8 0.1.0",
  "serde",
@@ -1476,8 +1476,8 @@ dependencies = [
 
 [[package]]
 name = "email8-ical"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "chrono",
  "serde",
@@ -1485,8 +1485,8 @@ dependencies = [
 
 [[package]]
 name = "email8-imap-proto"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "thiserror 1.0.69",
  "uuid",
@@ -1494,8 +1494,8 @@ dependencies = [
 
 [[package]]
 name = "email8-jmap-proto"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "serde",
  "serde_json",
@@ -1504,8 +1504,8 @@ dependencies = [
 
 [[package]]
 name = "email8-mail-auth"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1522,8 +1522,8 @@ dependencies = [
 
 [[package]]
 name = "email8-mail-core"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "base64 0.22.1",
  "blake3",
@@ -1538,8 +1538,8 @@ dependencies = [
 
 [[package]]
 name = "email8-mail-queue"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1588,8 +1588,8 @@ dependencies = [
 
 [[package]]
 name = "email8-sieve"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "chrono",
  "regex",
@@ -1598,8 +1598,8 @@ dependencies = [
 
 [[package]]
 name = "email8-smtp-proto"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "serde",
  "thiserror 1.0.69",
@@ -1607,8 +1607,8 @@ dependencies = [
 
 [[package]]
 name = "email8-spam"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "async-trait",
  "serde",
@@ -1620,8 +1620,8 @@ dependencies = [
 
 [[package]]
 name = "email8-vcard"
-version = "0.1.0"
-source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v0.5.8#3cb826491851b012c66a7d48dcddc71e7620e78b"
+version = "1.0.0"
+source = "git+https://github.com/Email8-dev/email8-sdk?tag=email8-v1.0.0#76e20278c86c706e77b7e9aa5277ee6bd29e15d6"
 dependencies = [
  "serde",
  "serde_json",
