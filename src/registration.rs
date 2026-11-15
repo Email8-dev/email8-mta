@@ -117,7 +117,31 @@ const M2M_GRANTS: &[M2mGrant] = &[
             "email8:mail:read",
             "email8:mail:write",
             "email8:mail:receive",
+            // Message blobs (submit.rs `enqueue` → Storage `put_if_absent`,
+            // queue fetches → `get`): the SMTP/JMAP ingestion path stores
+            // every message body in Sentin8:Storage under the workload
+            // certificate. The scope vocabulary is the PLATFORM form
+            // (`sentin8:storage:env:*` - what Storage's scope-mirror
+            // policies permit); the unprefixed form 403s.
+            "sentin8:storage:env:write",
+            "sentin8:storage:env:read",
+            // Holder-tier view (the resolve/ingest contract): the store's
+            // account-scoped policies admit the M2M read branch with
+            // `holder:view-all` (the principals precedent) - the MTA's
+            // RCPT resolution (`POST /v1/internal/resolve`) reads
+            // `email8.principal_addresses` rows across the env's
+            // accounts before any user context exists.
+            "holder:view-all",
         ],
+    },
+    M2mGrant {
+        // The TLS-plane hostname resolver's lookup workload (TLS-RLS-4): cache
+        // miss calls Sys `GET /v1/resolve/hostname` - without this
+        // declared row user-token requests 401 at identity resolution
+        // ("workload 'email8-mta-tls' is not enrolled" - observed in the
+        // MTA logs during the e2e bring-up).
+        workload: "email8-mta-tls",
+        scopes: &["sentin8:sys:instances:read"],
     },
     M2mGrant {
         // Shield hot-reload consumer (- see email8-access).
@@ -277,6 +301,7 @@ const SQL_2_OUTBOX: &str = include_str!("../sql/outbox.sql");
 /// provisioning-design.md §2.1). The shell's boot-8c pusher drains it
 /// to Sys `POST /v1/audit`.
 const SQL_3_AUDIT: &str = include_str!("../sql/audit.sql");
+const SQL_5_QUEUE_DUE_ENVS: &str = include_str!("../sql/queue_due_envs.sql");
 
 fn openapi_spec() -> serde_json::Value {
     // Portable stub when #[path]-included from tests (POLICY-7): the real
@@ -321,6 +346,15 @@ pub fn print(section: Option<String>) -> anyhow::Result<()> {
                 version: 4,
                 name: "audit",
                 sql: SQL_3_AUDIT,
+            },
+            SqlMigration {
+                // v5 (E2E-QUEUE-1): the queue pump's due-env discovery
+                // helper (`email8.sentin8_queue_due_envs()` - SECURITY
+                // DEFINER) - the FORCE-RLS queue tables need the
+                // outbox-relay's per-env claim pattern.
+                version: 5,
+                name: "queue-due-envs",
+                sql: SQL_5_QUEUE_DUE_ENVS,
             },
         ],
         audit_findings: None,

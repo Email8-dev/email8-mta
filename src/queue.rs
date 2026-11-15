@@ -77,34 +77,56 @@ struct DueEvent {
     kind: String,
 }
 
-/// Claim up to 16 due events per pass (SKIP LOCKED).
+/// Claim up to 16 due events per pass (SKIP LOCKED), per env.
+///
+/// E2E-QUEUE-1 (the pump contract): the queue tables are FORCE-RLS'd,
+/// and this worker runs on the service pool with NO user context - a
+/// context-less claim returned zero rows silently and NO delivery ever
+/// fired. The SDK outbox-relay precedent applies: the due ENVs surface
+/// through `email8.sentin8_queue_due_envs()` (SECURITY DEFINER - the
+/// env list only), then each env's claim runs inside a transaction
+/// stamped with THAT env's context.
 async fn claim_due_batch(pool: &sqlx::PgPool) -> Result<Vec<DueEvent>, sqlx::Error> {
     let instance = instance_tag();
-    let rows = sqlx::query(
-        r#"UPDATE email8.queue_events e
-              SET claimed_at = now(), claimed_by = $1
-            WHERE id IN (
-                SELECT id FROM email8.queue_events
-                 WHERE due_at <= now() AND claimed_at IS NULL
-                 ORDER BY due_at
-                 LIMIT 16
-                 FOR UPDATE SKIP LOCKED
-            )
-            RETURNING e.id, e.env_id, e.message_id, e.queue_name, e.kind"#,
-    )
-    .bind(instance)
-    .fetch_all(pool)
-    .await?;
-    Ok(rows
-        .iter()
-        .map(|r| DueEvent {
-            id: r.get("id"),
-            env_id: r.get("env_id"),
-            message_id: r.get("message_id"),
-            _queue_name: r.get("queue_name"),
-            kind: r.get("kind"),
-        })
-        .collect())
+    let envs: Vec<Uuid> =
+        sqlx::query_scalar("SELECT env_id FROM email8.sentin8_queue_due_envs()")
+            .fetch_all(pool)
+            .await?;
+    let mut out = Vec::new();
+    for env_id in envs {
+        let mut tx = pool.begin().await?;
+        let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
+            .bind(env_id)
+            .execute(&mut *tx)
+            .await;
+        let rows = sqlx::query(
+            r#"UPDATE email8.queue_events e
+                  SET claimed_at = now(), claimed_by = $1
+                WHERE id IN (
+                    SELECT id FROM email8.queue_events
+                     WHERE env_id = $2 AND due_at <= now() AND claimed_at IS NULL
+                     ORDER BY due_at
+                     LIMIT 16
+                     FOR UPDATE SKIP LOCKED
+                )
+                RETURNING e.id, e.env_id, e.message_id, e.queue_name, e.kind"#,
+        )
+        .bind(&instance)
+        .bind(env_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        for r in &rows {
+            out.push(DueEvent {
+                id: r.get("id"),
+                env_id: r.get("env_id"),
+                message_id: r.get("message_id"),
+                _queue_name: r.get("queue_name"),
+                kind: r.get("kind"),
+            });
+        }
+    }
+    Ok(out)
 }
 
 fn instance_tag() -> String {
@@ -126,11 +148,18 @@ async fn process_event(
         "dsn" => Ok(()), // DSNs are generated inline at terminal state
         _ => Ok(()),
     }?;
-    // Release the claim row.
+    // Release the claim row (stamped - E2E-QUEUE-1: the queue tables
+    // are FORCE-RLS'd and the pool has no ambient context).
+    let mut tx = pool.begin().await?;
+    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
+        .bind(ev.env_id)
+        .execute(&mut *tx)
+        .await;
     sqlx::query("DELETE FROM email8.queue_events WHERE id = $1")
         .bind(ev.id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+    tx.commit().await?;
     Ok(())
 }
 
@@ -146,13 +175,33 @@ async fn deliver(
     dns: &Arc<Resolver>,
     ev: &DueEvent,
 ) -> anyhow::Result<()> {
-    // Load message + its scheduled recipients.
+    // Load message + its scheduled recipients (ONE stamped transaction -
+    // E2E-QUEUE-1: FORCE-RLS queue tables return zero rows without the
+    // env context, and the context is transaction-local).
+    let mut tx = pool.begin().await?;
+    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
+        .bind(ev.env_id)
+        .execute(&mut *tx)
+        .await;
     let msg = sqlx::query(
         "SELECT id, env_id, return_path, blob_hash, size, source_flags FROM email8.queue_messages WHERE id = $1",
     )
     .bind(ev.message_id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
+    let recipients = if msg.is_some() {
+        sqlx::query(
+            "SELECT id, address, queue_name, attempts, spam_pct FROM email8.queue_recipients \
+             WHERE message_id = $1 AND (status = 'scheduled' OR (status = 'temporary_failure' AND next_attempt_at <= now())) \
+             ORDER BY id",
+        )
+        .bind(ev.message_id)
+        .fetch_all(&mut *tx)
+        .await?
+    } else {
+        Vec::new()
+    };
+    tx.commit().await?;
     let Some(msg) = msg else {
         return Ok(()); // message already terminal
     };
@@ -160,15 +209,6 @@ async fn deliver(
     let return_path: String = msg.get("return_path");
     let size: i64 = msg.get("size");
     let source_flags: i32 = msg.get("source_flags");
-
-    let recipients = sqlx::query(
-        "SELECT id, address, queue_name, attempts, spam_pct FROM email8.queue_recipients \
-         WHERE message_id = $1 AND (status = 'scheduled' OR (status = 'temporary_failure' AND next_attempt_at <= now())) \
-         ORDER BY id",
-    )
-    .bind(ev.message_id)
-    .fetch_all(pool)
-    .await?;
 
     for rcpt in &recipients {
         let address: String = rcpt.get("address");
@@ -192,7 +232,7 @@ async fn deliver(
             .await
             {
                 Ok(()) => {
-                    mark_terminal(pool, rcpt_id, "completed", Some("250 OK")).await?;
+                    mark_terminal(pool, &ev.env_id, rcpt_id, "completed", Some("250 OK")).await?;
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, %address, "email8:mta: local delivery failed");
@@ -206,13 +246,13 @@ async fn deliver(
             let outcome = deliver_remote(config, sts, dns, ev, &return_path, &address, &raw).await;
             match outcome {
                 Ok(RcptOutcome::Completed { reply, .. }) => {
-                    mark_terminal(pool, rcpt_id, "completed", Some(&reply)).await?;
+                    mark_terminal(pool, &ev.env_id, rcpt_id, "completed", Some(&reply)).await?;
                 }
                 Ok(RcptOutcome::Temporary { reply, .. }) => {
                     schedule_retry(pool, ev, rcpt_id, attempts, &queue_name, &reply).await?;
                 }
                 Ok(RcptOutcome::Permanent { reply, .. }) => {
-                    mark_terminal(pool, rcpt_id, "permanent_failure", Some(&reply)).await?;
+                    mark_terminal(pool, &ev.env_id, rcpt_id, "permanent_failure", Some(&reply)).await?;
                     emit_dsn(pool, queue, ev, &return_path, &address, &reply, &raw).await?;
                 }
                 Err(e) => {
@@ -228,13 +268,13 @@ async fn deliver(
             let outcome = deliver_remote(config, sts, dns, ev, &return_path, &address, &raw).await;
             match outcome {
                 Ok(RcptOutcome::Completed { reply, .. }) => {
-                    mark_terminal(pool, rcpt_id, "completed", Some(&reply)).await?;
+                    mark_terminal(pool, &ev.env_id, rcpt_id, "completed", Some(&reply)).await?;
                 }
                 Ok(RcptOutcome::Temporary { reply, .. }) => {
                     schedule_retry(pool, ev, rcpt_id, attempts, &queue_name, &reply).await?;
                 }
                 Ok(RcptOutcome::Permanent { reply, .. }) => {
-                    mark_terminal(pool, rcpt_id, "permanent_failure", Some(&reply)).await?;
+                    mark_terminal(pool, &ev.env_id, rcpt_id, "permanent_failure", Some(&reply)).await?;
                     // No DSN for DSN/report queues (double-bounce rule).
                 }
                 Err(e) => {
@@ -445,7 +485,7 @@ async fn fetch_blob(
     let storage = crate::storage_auth::storage_client(
         pool,
         &config.sentin8_storage_url,
-        &["storage:env:read"],
+        &["sentin8:storage:env:read"],
     )
     .await?;
     storage
@@ -525,13 +565,19 @@ fn extract_status_code(reply: &str) -> String {
 
 /// Mark a recipient terminal (completed / permanent_failure) and release
 /// the quota buckets it consumed at enqueue time (design §6 - decrement
-/// at terminal recipient state).
+/// at terminal recipient state). ONE stamped transaction (E2E-QUEUE-1).
 async fn mark_terminal(
     pool: &sqlx::PgPool,
+    env_id: &uuid::Uuid,
     rcpt_id: Uuid,
     status: &str,
     reply: Option<&str>,
 ) -> anyhow::Result<()> {
+    let mut tx = pool.begin().await?;
+    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
+        .bind(env_id)
+        .execute(&mut *tx)
+        .await;
     let released = sqlx::query(
         "UPDATE email8.queue_recipients SET status = $2, last_reply = $3, updated_at = now() \
          WHERE id = $1 AND status NOT IN ('completed', 'permanent_failure') RETURNING env_id, message_id, address",
@@ -539,30 +585,31 @@ async fn mark_terminal(
     .bind(rcpt_id)
     .bind(status)
     .bind(reply)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
-    if let Some(row) = released {
-        let env_id: uuid::Uuid = row.get("env_id");
+    if let Some(row) = &released {
         let message_id: uuid::Uuid = row.get("message_id");
         let address: String = row.get("address");
         let msg: Option<sqlx::postgres::PgRow> =
             sqlx::query("SELECT return_path, size FROM email8.queue_messages WHERE id = $1")
                 .bind(message_id)
-                .fetch_optional(pool)
+                .fetch_optional(&mut *tx)
                 .await?;
         if let Some(msg) = msg {
             let return_path: String = msg.get("return_path");
             let size: i64 = msg.get("size");
-            release_quota(pool, &env_id, &return_path, &address, size).await?;
+            release_quota(&mut tx, env_id, &return_path, &address, size).await?;
         }
     }
+    tx.commit().await?;
     Ok(())
 }
 
 /// Decrement the sender / rcpt / rcpt-domain quota buckets for one
-/// terminal recipient (never below zero).
+/// terminal recipient (never below zero). Runs on the CALLER'S stamped
+/// transaction (mark_terminal's - the context is already set).
 async fn release_quota(
-    pool: &sqlx::PgPool,
+    tx: &mut sqlx::PgTransaction<'_>,
     env_id: &uuid::Uuid,
     return_path: &str,
     address: &str,
@@ -572,13 +619,6 @@ async fn release_quota(
     let rcpt = address.to_ascii_lowercase();
     let rcpt_domain = rcpt.split('@').next_back().unwrap_or("").to_string();
     let sender_domain = sender.split('@').next_back().unwrap_or("").to_string();
-    // stamp + UPDATEs share ONE transaction (the context is
-    // transaction-local and never applies on the raw pool).
-    let mut tx = pool.begin().await?;
-    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
-        .bind(env_id)
-        .execute(&mut *tx)
-        .await;
     for (kind, key) in [
         ("sender", sender),
         ("rcpt_domain", sender_domain),
@@ -595,10 +635,9 @@ async fn release_quota(
         .bind(kind)
         .bind(size)
         .bind(key)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }
 
@@ -621,6 +660,12 @@ async fn schedule_retry(
     let delay_secs = schedule[idx];
     let next_at = chrono::Utc::now() + chrono::Duration::seconds(delay_secs as i64);
 
+    // ONE stamped transaction (E2E-QUEUE-1: FORCE-RLS queue tables).
+    let mut tx = pool.begin().await?;
+    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
+        .bind(ev.env_id)
+        .execute(&mut *tx)
+        .await;
     sqlx::query(
         "UPDATE email8.queue_recipients \
             SET status = 'temporary_failure', attempts = $2, last_reply = $3, next_attempt_at = $4, updated_at = now() \
@@ -630,7 +675,7 @@ async fn schedule_retry(
     .bind(attempts + 1)
     .bind(reply)
     .bind(next_at)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
 
     // Re-arm the due event (only if this recipient still drives it).
@@ -642,8 +687,9 @@ async fn schedule_retry(
     .bind(ev.message_id)
     .bind(queue_name)
     .bind(next_at)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(())
 }
 
@@ -654,6 +700,12 @@ async fn expire(
     queue: &Arc<QueueWriter>,
     ev: &DueEvent,
 ) -> anyhow::Result<()> {
+    // ONE stamped transaction (E2E-QUEUE-1: FORCE-RLS queue tables).
+    let mut tx = pool.begin().await?;
+    let _ = sqlx::query("SELECT sentin8_set_tenant_context($1)")
+        .bind(ev.env_id)
+        .execute(&mut *tx)
+        .await;
     let rows = sqlx::query(
         "UPDATE email8.queue_recipients \
             SET status = 'permanent_failure', last_reply = 'expired', updated_at = now() \
@@ -661,8 +713,9 @@ async fn expire(
           RETURNING address",
     )
     .bind(ev.message_id)
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     if !rows.is_empty() {
         tracing::warn!(queue = %ev.message_id, count = rows.len(), "email8:mta: message expired");
         emit_event(

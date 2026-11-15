@@ -144,7 +144,7 @@ async fn train_account(
     let storage = crate::storage_auth::storage_client(
         pool,
         &config.sentin8_storage_url,
-        &["storage:env:write"],
+        &["sentin8:storage:env:write"],
     )
     .await
     .map_err(|e| format!("storage client: {e}"))?;
@@ -187,7 +187,7 @@ async fn load_model(
     let storage = crate::storage_auth::storage_client(
         pool,
         &config.sentin8_storage_url,
-        &["storage:env:read"],
+        &["sentin8:storage:env:read"],
     )
     .await
     .ok();

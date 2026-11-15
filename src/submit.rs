@@ -156,7 +156,7 @@ impl QueueWriter {
         let storage = crate::storage_auth::storage_client(
             &self.pool,
             &self.config.sentin8_storage_url,
-            &["storage:env:write"],
+            &["sentin8:storage:env:write"],
         )
         .await
         .map_err(|e| format!("storage client: {e}"))?;
@@ -236,21 +236,30 @@ impl QueueWriter {
             .fetch_one(&mut *tx)
             .await
             .map_err(|e| format!("insert recipient: {e}"))?;
-
-            // Due event: delivery attempt scheduled now (first attempt).
-            sqlx::query(
-                "INSERT INTO email8.queue_events (env_id, message_id, queue_name, kind, due_at) \
-                 VALUES ($1, $2, $3, 'delivery', $4)",
-            )
-            .bind(env_id)
-            .bind(message_id)
-            .bind(queue_name)
-            .bind(now)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| format!("insert event: {e}"))?;
             let _ = recipient_id;
         }
+
+        // ONE due event per MESSAGE (not per recipient - E2E-QUEUE-2: N
+        // per-recipient events all land in the first claim batch and each
+        // deliver loop processes ALL scheduled recipients, multiplying
+        // deliveries N_recipients x N_events; 3 RCPTs delivered 9
+        // copies). The deliver loop walks the message's recipients
+        // itself; retries re-arm per message.
+        let primary_queue = recipients
+            .first()
+            .map(|r| if r.contains('@') { "local" } else { "remote" })
+            .unwrap_or("remote");
+        sqlx::query(
+            "INSERT INTO email8.queue_events (env_id, message_id, queue_name, kind, due_at) \
+             VALUES ($1, $2, $3, 'delivery', $4)",
+        )
+        .bind(env_id)
+        .bind(message_id)
+        .bind(primary_queue)
+        .bind(now)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("insert event: {e}"))?;
 
         // Blob link ledger row (queue reference - GC keeps blobs with
         // live queue links). owner_account_id is NULL until the message
@@ -329,7 +338,7 @@ pub async fn submit(
     let storage = crate::storage_auth::storage_client(
         &state.pool,
         &state.config.sentin8_storage_url,
-        &["storage:env:read"],
+        &["sentin8:storage:env:read"],
     )
     .await
     .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
