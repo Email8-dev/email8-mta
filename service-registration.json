@@ -9,7 +9,8 @@
       "telemetry_property": {
         "slug": "mta",
         "name": "Email8:MTA Telemetry"
-      }
+      },
+      "exposure": "internal"
     }
   ],
   "valkey": {
